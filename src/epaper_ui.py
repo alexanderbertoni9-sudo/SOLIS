@@ -34,20 +34,44 @@ def overlay_progress(img: Image.Image, step: int, total: int) -> Image.Image:
     return img
 
 
-def should_snapshot(step: int, total: int, snapshots: int, last_bucket: int) -> tuple[bool, int]:
+def should_snapshot(
+    step: int,
+    total: int,
+    snapshots: int,
+    last_bucket: int,
+    hide_frac: float = 0.18,
+) -> tuple[bool, int]:
     """
-    Robust snapshot scheduler based on percent buckets.
+    Snapshot scheduler for "gallery-like" generation on slow e-paper.
+
+    - Hides early noisy diffusion steps (hide_frac of total).
+    - Then emits ~`snapshots` updates evenly across remaining steps.
+    - Always emits the final step (100%).
+    - Uses `last_bucket` to prevent duplicate updates.
 
     Returns:
       (should_update, new_bucket)
-
-    Example: snapshots=8 -> buckets 1..8 at ~12.5%, 25%, ... 100%
     """
     if total <= 0:
         return True, last_bucket
 
-    frac = max(0.0, min(1.0, step / total))
-    bucket = int(frac * snapshots)  # 0..snapshots
+    # Always show the final frame
+    if step >= total:
+        return True, snapshots
+
+    # Hide early noisy steps
+    hide_until = int(total * hide_frac)
+    if step < hide_until:
+        return False, last_bucket
+
+    remaining = max(1, total - hide_until)       # steps available after hide
+    progressed = max(0, step - hide_until)       # progress within remaining
+
+    # Bucket index goes 0..snapshots-1 during generation, then snapshots at final
+    frac = max(0.0, min(1.0, progressed / remaining))
+    bucket = int(frac * snapshots)               # 0..snapshots (but final handled above)
+    if bucket >= snapshots:
+        bucket = snapshots - 1
 
     if bucket > last_bucket:
         return True, bucket

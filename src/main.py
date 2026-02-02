@@ -50,9 +50,10 @@ def run_diffusion():
 
     last = None
 
-    # E-paper realism knobs
-    SNAPSHOTS = 8          # total updates during generation
-    MIN_STEP_TO_SHOW = 6   # hide early super-noisy steps
+    # E-paper realism knobs (judge-friendly)
+    SNAPSHOTS = 8         # total visible updates during generation
+    HIDE_FRAC = 0.18      # hide first ~18% of steps (very noisy)
+
     last_bucket = -1
 
     try:
@@ -63,15 +64,21 @@ def run_diffusion():
             # Always keep most recent image for final export
             last = frame.image
 
-            # Step 0 is the immediate "loading" frame from generator_diffusion.py
+            # Step 0 is the immediate "loading" frame
             if frame.step == 0:
                 img_with_ui = overlay_progress(frame.image, frame.step, frame.total_steps)
                 preview.show(img_with_ui, frame.step, frame.total_steps)
                 continue
 
-            # Only snapshot at percent buckets (and not too early)
-            do_update, last_bucket = should_snapshot(frame.step, frame.total_steps, SNAPSHOTS, last_bucket)
-            if do_update and frame.step >= MIN_STEP_TO_SHOW:
+            do_update, last_bucket = should_snapshot(
+                frame.step,
+                frame.total_steps,
+                SNAPSHOTS,
+                last_bucket,
+                hide_frac=HIDE_FRAC,
+            )
+
+            if do_update:
                 img_with_ui = overlay_progress(frame.image, frame.step, frame.total_steps)
                 preview.show(img_with_ui, frame.step, frame.total_steps)
 
