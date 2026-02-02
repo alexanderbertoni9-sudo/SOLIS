@@ -15,7 +15,11 @@ class LivePreview:
         self.cfg = cfg
         self.screen = pygame.display.set_mode(cfg.window_size)
         pygame.display.set_caption(cfg.title)
+
+        # Keep these (even if unused) so your environment stays identical/stable
+        # and we don’t risk breaking anything subtle.
         self.font = pygame.font.SysFont("monospace", 18)
+
         self.clock = pygame.time.Clock()
 
     def _pil_to_surface(self, img: Image.Image) -> pygame.Surface:
@@ -29,16 +33,16 @@ class LivePreview:
         return True
 
     def show(self, img: Image.Image, step: int, total: int):
+        # Extra safety: pump events here too, so the window stays responsive
+        # even if something upstream skips pump() occasionally.
+        pygame.event.pump()
+
         surf = self._pil_to_surface(img)
         self.screen.blit(surf, (0, 0))
 
-        label = self.font.render(f"Generating: {step}/{total}", True, (255, 255, 255))
-        self.screen.blit(label, (12, 12))
-
-        bar_w = self.cfg.window_size[0] - 24
-        pygame.draw.rect(self.screen, (30, 30, 30), (12, 40, bar_w, 10))
-        fill = int(bar_w * (step / max(total, 1)))
-        pygame.draw.rect(self.screen, (220, 220, 220), (12, 40, fill, 10))
+        # IMPORTANT:
+        # Do NOT draw any progress UI here.
+        # Progress is already baked into the incoming image by epaper_ui.overlay_progress().
 
         pygame.display.flip()
         self.clock.tick(30)
