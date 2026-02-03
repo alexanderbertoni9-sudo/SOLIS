@@ -1,55 +1,23 @@
 from __future__ import annotations
-
-import os
-import sys
-import time
-from typing import Optional
-import pygame
-
-# --- Make imports reliable no matter where you run from ---
-SRC_DIR = os.path.dirname(os.path.abspath(__file__))          # .../project/src
-ROOT = os.path.dirname(SRC_DIR)                               # .../project
-if SRC_DIR not in sys.path:
-    sys.path.insert(0, SRC_DIR)
+import os, time
 
 from export_epaper import to_epaper_1bit
 from preview import LivePreview, PreviewConfig
-
-# E-paper realism helpers
 from epaper_ui import overlay_progress, should_snapshot
+from epaper_display import EpaperDisplay, EpaperConfig
 
-# Fixed prompt for competition mode (we can make configurable later)
-PROMPT = "A picture of renewable energy, solar panels, and wind turbines in a beautiful landscape."
+# Competition prompt (change only when you explicitly want to)
+PROMPT = "A picture of renewable energy"
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BANK_DIR = os.path.join(ROOT, "image_bank")
 EXPORT_DIR = os.path.join(ROOT, "exports")
 
-# Example e-paper size (we'll update later to match your real panel)
 EPAPER_SIZE = (800, 480)
 
-
-def init_pygame_for_preview():
-    """
-    Ensures pygame is initialized before LivePreview tries to use it.
-    Safe to call multiple times.
-    """
-    try:
-        import pygame
-    except Exception as e:
-        raise RuntimeError(
-            "pygame is not installed in this Python environment.\n"
-            "Install it with: python3 -m pip install pygame"
-        ) from e
-
-    # Initialize core modules used by most preview windows
-    if not pygame.get_init():
-        pygame.init()
-
-    # These are the usual culprits if 'not initialized' appears:
-    if not pygame.display.get_init():
-        pygame.display.init()
-
-    if not pygame.font.get_init():
-        pygame.font.init()
+# Step B realism knobs
+SNAPSHOTS = 8
+HIDE_FRAC = 0.18
 
 
 def run_bank():
@@ -58,38 +26,25 @@ def run_bank():
     os.makedirs(EXPORT_DIR, exist_ok=True)
     gen = ImageBankGenerator(BANK_DIR)
 
-    # ✅ FIX: initialize pygame before constructing LivePreview
-    init_pygame_for_preview()
     preview = LivePreview(PreviewConfig(title=f"SOLIS (bank) — {PROMPT}"))
+    epaper = EpaperDisplay(EpaperConfig(size=EPAPER_SIZE, invert=False))
 
-    last: Optional[object] = None
+    last = None
     try:
         for frame in gen.generate(total_steps=25):
             if not preview.pump():
                 return
 
-            # Some generators may yield a "loading" frame with image=None
-            if frame.image is None:
-                continue
-
             preview.show(frame.image, frame.step, frame.total_steps)
             last = frame.image
 
-        if last is None:
-            raise RuntimeError("Bank generator produced no image frames (last is None).")
-
         final = to_epaper_1bit(last, EPAPER_SIZE)
+        epaper.show(final)  # show final on e-paper
         out = os.path.join(EXPORT_DIR, f"solis_bank_{int(time.time())}.png")
         final.save(out)
         print("Saved:", out)
     finally:
         preview.close()
-        # Optional cleanup (keeps things tidy if you rerun a lot)
-        try:
-            import pygame
-            pygame.quit()
-        except Exception:
-            pass
 
 
 def run_diffusion():
@@ -98,16 +53,10 @@ def run_diffusion():
     os.makedirs(EXPORT_DIR, exist_ok=True)
     gen = DiffusionGenerator(prompt=PROMPT)
 
-    # ✅ FIX: initialize pygame before constructing LivePreview
-    init_pygame_for_preview()
     preview = LivePreview(PreviewConfig(title=f"SOLIS (diffusion) — {PROMPT}"))
+    epaper = EpaperDisplay(EpaperConfig(size=EPAPER_SIZE, invert=False))
 
-    last: Optional[object] = None
-
-    # E-paper realism knobs (judge-friendly)
-    SNAPSHOTS = 8         # total visible updates during generation
-    HIDE_FRAC = 0.18      # hide first ~18% of steps (very noisy)
-
+    last = None
     last_bucket = -1
 
     try:
@@ -115,14 +64,9 @@ def run_diffusion():
             if not preview.pump():
                 return
 
-            # If the generator yields an empty frame, skip safely
-            if frame.image is None:
-                continue
-
-            # Always keep most recent image for final export
             last = frame.image
 
-            # Step 0 is the immediate "loading" frame
+            # Step 0: show "loading" on preview, but DO NOT refresh e-paper yet
             if frame.step == 0:
                 img_with_ui = overlay_progress(frame.image, frame.step, frame.total_steps)
                 preview.show(img_with_ui, frame.step, frame.total_steps)
@@ -137,32 +81,28 @@ def run_diffusion():
             )
 
             if do_update:
+                # 1) preview update (with baked overlay)
                 img_with_ui = overlay_progress(frame.image, frame.step, frame.total_steps)
                 preview.show(img_with_ui, frame.step, frame.total_steps)
 
-        if last is None:
-            raise RuntimeError("Diffusion generator produced no image frames (last is None).")
+                # 2) e-paper refresh on the SAME schedule
+                # Tradeoff: converting to 1-bit costs CPU, but only ~8 times total.
+                epaper_img = to_epaper_1bit(frame.image, EPAPER_SIZE)
+                epaper.show(epaper_img)
 
+        # Final: always push final frame to e-paper + export
         final = to_epaper_1bit(last, EPAPER_SIZE)
+        epaper.show(final)
         out = os.path.join(EXPORT_DIR, f"solis_diffusion_{int(time.time())}.png")
         final.save(out)
         print("Saved:", out)
     finally:
         preview.close()
-        # Optional cleanup
-        try:
-            import pygame
-            pygame.quit()
-        except Exception:
-            pass
 
 
 if __name__ == "__main__":
-    # Choose mode with an environment variable:
-    #   SOLIS_MODE=diffusion python3 src/main.py
-    # default: bank
-    mode = os.environ.get("SOLIS_MODE", "bank").strip().lower()
-    if mode == "diffusion":
-        run_diffusion()
-    else:
+    mode = os.environ.get("SOLIS_MODE", "diffusion").strip().lower()
+    if mode == "bank":
         run_bank()
+    else:
+        run_diffusion()
