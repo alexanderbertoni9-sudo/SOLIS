@@ -27,7 +27,7 @@ def run_bank():
     gen = ImageBankGenerator(BANK_DIR)
 
     preview = LivePreview(PreviewConfig(title=f"SOLIS (bank) — {PROMPT}"))
-    epaper = EpaperDisplay(EpaperConfig(size=EPAPER_SIZE, invert=False))
+    epaper = EpaperDisplay(EpaperConfig(size=EPAPER_SIZE, invert=False, min_refresh_seconds=8.0))
 
     last = None
     try:
@@ -54,7 +54,7 @@ def run_diffusion():
     gen = DiffusionGenerator(prompt=PROMPT)
 
     preview = LivePreview(PreviewConfig(title=f"SOLIS (diffusion) — {PROMPT}"))
-    epaper = EpaperDisplay(EpaperConfig(size=EPAPER_SIZE, invert=False))
+    epaper = EpaperDisplay(EpaperConfig(size=EPAPER_SIZE, invert=False, min_refresh_seconds=8.0))
 
     last = None
     last_bucket = -1
@@ -92,7 +92,7 @@ def run_diffusion():
 
         # Final: always push final frame to e-paper + export
         final = to_epaper_1bit(last, EPAPER_SIZE)
-        epaper.show(final)
+        epaper.show(final, force=True)
         out = os.path.join(EXPORT_DIR, f"solis_diffusion_{int(time.time())}.png")
         final.save(out)
         print("Saved:", out)
