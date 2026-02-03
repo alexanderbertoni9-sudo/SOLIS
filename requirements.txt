@@ -1,0 +1,10 @@
+pillow
+torch
+torchvision
+torchaudio
+diffusers
+transformers
+accelerate
+safetensors
+pygame
+
