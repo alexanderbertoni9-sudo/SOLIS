@@ -1,7 +1,12 @@
-# SOLIS Run Command
+# Run SOLIS
 
+## Command
 ```bash
 ./run.sh
 ```
 
-That is the only runtime command for the installation build.
+## Controls
+- `Esc` or `q`: exit fullscreen.
+
+## Output
+- Final image: `output/solis_latest.png`

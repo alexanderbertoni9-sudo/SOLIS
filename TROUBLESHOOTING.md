@@ -1,41 +1,42 @@
-# SOLIS Troubleshooting
+# Troubleshooting
 
-## `./run.sh` says permission denied
+## `./run.sh`: Permission denied
 ```bash
 chmod +x run.sh
 ```
 
-## Out of disk space on Raspberry Pi
+## Not enough space on Raspberry Pi
+Check free space:
 ```bash
 df -h
 ```
-- Remove pip cache: `rm -rf ~/.cache/pip`
-- Remove old virtual env and reinstall clean:
+Free package and pip cache:
+```bash
+sudo apt clean
+sudo apt autoremove -y
+rm -rf ~/.cache/pip
+```
+Rebuild virtual environment:
 ```bash
 rm -rf .venv
 ./run.sh
 ```
 
-## Fullscreen window does not appear
-- Confirm display is connected before boot.
-- If running via SSH, start from the local desktop session.
+## Install is too large
+- `torch` and `diffusers` are large by design.
+- Use a larger SD card (64 GB recommended for smoother operation).
+- Keep extra free space for model cache growth.
 
-## PyTorch / diffusers install is too large
-- This is expected on small SD cards.
-- Use a larger card (64GB+ recommended).
-- Free space before install:
-```bash
-sudo apt clean
-sudo apt autoremove -y
-```
+## No fullscreen window appears
+- Make sure a monitor is connected before app launch.
+- If you are connected over SSH, run from the local desktop session.
 
 ## App exits immediately
-- Check Python version:
+Check Python:
 ```bash
 python3 --version
 ```
-- Recommended: Python 3.10+
+Use Python 3.10 or newer.
 
-## Slow first run
-- Initial model download is large and can take several minutes.
-- Later runs are faster because assets are cached.
+## First run is very slow
+First run downloads model assets and builds local caches. Later runs are faster.
