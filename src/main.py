@@ -1,10 +1,8 @@
 from __future__ import annotations
 import os, time
 
-from export_epaper import to_epaper_1bit
 from preview import LivePreview, PreviewConfig
-from epaper_ui import overlay_progress, should_snapshot
-from epaper_display import EpaperDisplay, EpaperConfig
+from epaper_ui import overlay_progress
 
 # Competition prompt (change only when you explicitly want to)
 PROMPT = "A picture of renewable energy"
@@ -13,11 +11,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BANK_DIR = os.path.join(ROOT, "image_bank")
 EXPORT_DIR = os.path.join(ROOT, "exports")
 
-EPAPER_SIZE = (800, 480)
-
-# Step B realism knobs
-SNAPSHOTS = 8
-HIDE_FRAC = 0.18
+SCREEN_SIZE = (1280, 720)
 
 
 def _get_profile():
@@ -30,7 +24,7 @@ def _get_profile():
         return {
             "steps": 24,                 # fewer steps = more reliable / lower power
             "preview_every": 6,          # decode fewer intermediate frames
-            "epaper_min_refresh": 10.0,  # real e-paper feels ~slow; reduces power + ghosting
+            "screen_max_fps": 0,          # 0 = uncapped for a more alive generation feel
             "headless_default": True,    # Pi often runs without a monitor
         }
 
@@ -38,7 +32,7 @@ def _get_profile():
     return {
         "steps": 30,
         "preview_every": 4,
-        "epaper_min_refresh": 8.0,
+        "screen_max_fps": 0,
         "headless_default": False,
     }
 
@@ -57,9 +51,8 @@ def run_bank():
 
     preview = None
     if not headless:
-        preview = LivePreview(PreviewConfig(title=f"SOLIS (bank) — {PROMPT}"))
+        preview = LivePreview(PreviewConfig(window_size=SCREEN_SIZE, title=f"SOLIS (bank) — {PROMPT}", max_fps=profile["screen_max_fps"]))
 
-    epaper = EpaperDisplay(EpaperConfig(size=EPAPER_SIZE, invert=False, min_refresh_seconds=profile["epaper_min_refresh"]))
 
     last = None
     try:
@@ -70,10 +63,10 @@ def run_bank():
                     return
                 preview.show(frame.image, frame.step, frame.total_steps)
 
-        final = to_epaper_1bit(last, EPAPER_SIZE)
-        epaper.show(final, force=True)
         out = os.path.join(EXPORT_DIR, f"solis_bank_{int(time.time())}.png")
-        final.save(out)
+        last.save(out)
+        if preview and last is not None:
+            preview.show_final_fullscreen(last)
         print("Saved:", out)
     finally:
         if preview:
@@ -95,12 +88,10 @@ def run_diffusion():
 
     preview = None
     if not headless:
-        preview = LivePreview(PreviewConfig(title=f"SOLIS (diffusion) — {PROMPT}"))
+        preview = LivePreview(PreviewConfig(window_size=SCREEN_SIZE, title=f"SOLIS (diffusion) — {PROMPT}", max_fps=profile["screen_max_fps"]))
 
-    epaper = EpaperDisplay(EpaperConfig(size=EPAPER_SIZE, invert=False, min_refresh_seconds=profile["epaper_min_refresh"]))
 
     last = None
-    last_bucket = -1
 
     try:
         for frame in gen.generate_stream(steps=steps, preview_every=preview_every):
@@ -118,31 +109,18 @@ def run_diffusion():
                     preview.show(img_with_ui, frame.step, frame.total_steps)
                 continue
 
-            do_update, last_bucket = should_snapshot(
-                frame.step,
-                frame.total_steps,
-                SNAPSHOTS,
-                last_bucket,
-                hide_frac=HIDE_FRAC,
-            )
+            # Live updates every streamed frame for a more "alive" generation feel.
+            if preview:
+                img_with_ui = overlay_progress(frame.image, frame.step, frame.total_steps)
+                preview.show(img_with_ui, frame.step, frame.total_steps)
 
-            if do_update:
-                # 1) preview update (with baked overlay)
-                if preview:
-                    img_with_ui = overlay_progress(frame.image, frame.step, frame.total_steps)
-                    preview.show(img_with_ui, frame.step, frame.total_steps)
-
-                # 2) e-paper refresh on the SAME schedule
-                epaper_img = to_epaper_1bit(frame.image, EPAPER_SIZE)
-                epaper.show(epaper_img)
-
-        # Final: always push final frame to e-paper + export
-        final = to_epaper_1bit(last, EPAPER_SIZE)
-        epaper.show(final, force=True)
-
+        # Final: export and display fullscreen
         out = os.path.join(EXPORT_DIR, f"solis_diffusion_{int(time.time())}.png")
-        final.save(out)
+        last.save(out)
         print("Saved:", out)
+
+        if preview and last is not None:
+            preview.show_final_fullscreen(last)
     finally:
         if preview:
             preview.close()

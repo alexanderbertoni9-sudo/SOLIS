@@ -8,6 +8,7 @@ from PIL import Image
 class PreviewConfig:
     window_size: Tuple[int, int] = (820, 520)
     title: str = "SOLIS — Generating..."
+    max_fps: int = 0
 
 class LivePreview:
     def __init__(self, cfg: PreviewConfig = PreviewConfig()):
@@ -45,7 +46,33 @@ class LivePreview:
         # Progress is already baked into the incoming image by epaper_ui.overlay_progress().
 
         pygame.display.flip()
-        self.clock.tick(30)
+        if self.cfg.max_fps > 0:
+            self.clock.tick(self.cfg.max_fps)
+
+    def show_final_fullscreen(self, img: Image.Image):
+        """
+        Present final generated image in fullscreen until the user exits.
+        """
+        display_info = pygame.display.Info()
+        fullscreen_size = (display_info.current_w, display_info.current_h)
+
+        self.screen = pygame.display.set_mode(fullscreen_size, pygame.FULLSCREEN)
+        pygame.display.set_caption("SOLIS — Final Image")
+
+        final_img = img.convert("RGB").resize(fullscreen_size, Image.Resampling.LANCZOS)
+        surf = pygame.image.fromstring(final_img.tobytes(), final_img.size, final_img.mode)
+        self.screen.blit(surf, (0, 0))
+        pygame.display.flip()
+
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    return
+                if event.type == pygame.KEYDOWN and event.key in (pygame.K_ESCAPE, pygame.K_q):
+                    return
+
+            if self.cfg.max_fps > 0:
+                self.clock.tick(self.cfg.max_fps)
 
     def close(self):
         pygame.quit()
