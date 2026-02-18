@@ -1,16 +1,7 @@
-# SOLIS — Run Guide
+# SOLIS Run Command
 
 ```bash
-./setup.sh
-SOLIS_PROFILE=desktop python3 src/main.py
+./run.sh
 ```
 
-## Raspberry Pi (with monitor)
-```bash
-SOLIS_PROFILE=pi python3 src/main.py
-```
-
-## Headless mode
-```bash
-SOLIS_PROFILE=pi SOLIS_HEADLESS=1 python3 src/main.py
-```
+That is the only runtime command for the installation build.

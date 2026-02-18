@@ -1,69 +1,43 @@
 from __future__ import annotations
+
 import os
 
+from generator_diffusion import DiffusionGenerator
 from preview import LivePreview, PreviewConfig
 
 PROMPT = "A picture of renewable energy"
+STEPS = 30
+PREVIEW_EVERY = 1
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = os.path.join(ROOT, "output")
 OUTPUT_FILE = os.path.join(OUTPUT_DIR, "solis_latest.png")
 
 
-def _get_profile():
-    profile = os.environ.get("SOLIS_PROFILE", "desktop").strip().lower()
+def run() -> None:
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-    if profile == "pi":
-        return {
-            "steps": 24,
-            "preview_every": 2,
-            "headless_default": True,
-        }
+    preview = LivePreview(PreviewConfig(title="SOLIS — Live Installation"))
+    generator = DiffusionGenerator(prompt=PROMPT)
 
-    return {
-        "steps": 30,
-        "preview_every": 1,
-        "headless_default": False,
-    }
-
-
-def run_diffusion():
-    from generator_diffusion import DiffusionGenerator
-
-    profile = _get_profile()
-    steps = int(os.environ.get("SOLIS_STEPS", str(profile["steps"])))
-    preview_every = int(os.environ.get("SOLIS_PREVIEW_EVERY", str(profile["preview_every"])))
-    headless = os.environ.get("SOLIS_HEADLESS", "0").strip() == "1" or profile["headless_default"]
-    save_final = os.environ.get("SOLIS_SAVE_FINAL", "1").strip() == "1"
-
-    gen = DiffusionGenerator(prompt=PROMPT)
-    preview = None
-    if not headless:
-        preview = LivePreview(PreviewConfig(title=f"SOLIS — {PROMPT}"))
-
-    last = None
+    final_image = None
     try:
-        for frame in gen.generate_stream(steps=steps, preview_every=preview_every):
-            last = frame.image
-            if preview:
-                if not preview.pump():
-                    return
-                preview.show(frame.image, frame.step, frame.total_steps, show_status=True)
+        for frame in generator.generate_stream(steps=STEPS, preview_every=PREVIEW_EVERY):
+            final_image = frame.image
+            if not preview.pump():
+                return
+            preview.show(frame.image, frame.step, frame.total_steps, show_status=True)
 
-        if last is None:
+        if final_image is None:
             return
 
-        if save_final:
-            os.makedirs(OUTPUT_DIR, exist_ok=True)
-            last.save(OUTPUT_FILE, format="PNG")
-            print("Saved:", OUTPUT_FILE)
+        final_image.save(OUTPUT_FILE, format="PNG")
+        print("Saved:", OUTPUT_FILE)
 
-        if preview:
-            preview.show_final_fullscreen(last)
-            preview.wait_until_exit()
+        preview.show_final_fullscreen(final_image)
+        preview.wait_until_exit()
     finally:
-        if preview:
-            preview.close()
+        preview.close()
 
 
 if __name__ == "__main__":
-    run_diffusion()
+    run()

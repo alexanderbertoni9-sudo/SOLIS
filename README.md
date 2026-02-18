@@ -1,23 +1,31 @@
-# SOLIS — Screen-First Live Diffusion
+# SOLIS — Installation Build
 
-SOLIS generates images locally with Stable Diffusion and displays the generation live in fullscreen on a regular monitor.
+SOLIS is now structured as a single-purpose large-space installation runtime: one entry point, one display pipeline, and one generation loop.
 
-## Behavior
-- Prompt: `A picture of renewable energy`
-- Fullscreen window auto-sizes to the current monitor resolution.
-- Live updates are shown continuously while diffusion runs.
-- When generation completes, the final image remains fullscreen.
-- Press `Esc` or `q` to exit.
+## 30-Second Quick Start
+```bash
+git clone https://github.com/alexanderbertoni9-sudo/SOLIS.git
+cd SOLIS
+./run.sh
+```
 
-## Repo layout
-- `src/main.py` — runtime entrypoint
-- `src/generator_diffusion.py` — local diffusion generator with streamed frames
-- `src/preview.py` — fullscreen monitor display + live rendering
-- `output/solis_latest.png` — final exported image (overwritten each run)
+## What `./run.sh` does
+1. Creates `.venv` if missing.
+2. Installs required Python packages.
+3. Starts SOLIS fullscreen generation.
+4. Keeps the final image on screen when generation finishes.
 
-## Environment variables
-- `SOLIS_PROFILE=desktop|pi` (default: `desktop`)
-- `SOLIS_STEPS=<int>`
-- `SOLIS_PREVIEW_EVERY=<int>`
-- `SOLIS_HEADLESS=1` (run without display window)
-- `SOLIS_SAVE_FINAL=0|1` (default: `1`)
+## Setup Notes
+- First run takes longer because models and dependencies are downloaded.
+- Output image is saved to `output/solis_latest.png`.
+- Exit fullscreen with `Esc` or `q`.
+
+## Repository Structure
+- `run.sh` — single launch command for installation use
+- `src/main.py` — single entrypoint and generation loop
+- `src/preview.py` — fullscreen display pipeline
+- `src/generator_diffusion.py` — live diffusion frame stream
+- `setup.sh` — optional pre-install script
+- `RUN.md` — one-command run reference
+- `TROUBLESHOOTING.md` — install/runtime fixes
+- `CASE_STUDY_CODEX.md` — before/after transformation story
