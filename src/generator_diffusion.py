@@ -82,13 +82,15 @@ class DiffusionGenerator:
                     except queue.Full:
                         pass
 
-                self.pipe(
+                result = self.pipe(
                     self.prompt,
                     num_inference_steps=steps,
                     generator=generator,
                     callback=cb,
                     callback_steps=1,
                 )
+                final = result.images[0]
+                q.put((steps, final))
             finally:
                 q.put(DONE)
 

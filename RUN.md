@@ -1,10 +1,16 @@
-# SOLIS — Run Guide (Screen Mode)
+# SOLIS — Run Guide
 
-## Desktop run
 ```bash
 ./setup.sh
-SOLIS_PROFILE=desktop SOLIS_MODE=diffusion python3 src/main.py
+SOLIS_PROFILE=desktop python3 src/main.py
 ```
 
-This build shows continuous live generation updates in a window and switches to fullscreen when the final image is ready.
-Press `Esc` or `q` to exit fullscreen.
+## Raspberry Pi (with monitor)
+```bash
+SOLIS_PROFILE=pi python3 src/main.py
+```
+
+## Headless mode
+```bash
+SOLIS_PROFILE=pi SOLIS_HEADLESS=1 python3 src/main.py
+```

@@ -1,20 +1,23 @@
-# SOLIS — Solar-Operated Local Image Synthesizer
+# SOLIS — Screen-First Live Diffusion
 
-SOLIS is a solar-powered, Raspberry Pi–based sustainable art installation that generates images using a local/private AI pipeline and displays them live on a screen, then presents the finished image fullscreen.
+SOLIS generates images locally with Stable Diffusion and displays the generation live in fullscreen on a regular monitor.
 
-**Prompt (fixed):** “A picture of renewable energy”
+## Behavior
+- Prompt: `A picture of renewable energy`
+- Fullscreen window auto-sizes to the current monitor resolution.
+- Live updates are shown continuously while diffusion runs.
+- When generation completes, the final image remains fullscreen.
+- Press `Esc` or `q` to exit.
 
-## Core experience
-- A physical button triggers a reset and a new image is generated.
-- The system aims to feel “live” while generating by showing progressive updates with a live progress indicator and uncapped refresh so the generation feels alive.
+## Repo layout
+- `src/main.py` — runtime entrypoint
+- `src/generator_diffusion.py` — local diffusion generator with streamed frames
+- `src/preview.py` — fullscreen monitor display + live rendering
+- `output/solis_latest.png` — final exported image (overwritten each run)
 
-## Repository layout
-- `src/` — Python prototype + (later) Raspberry Pi code
-- `image_bank/` — optional pre-generated images for fast prototyping (not committed)
-- `exports/` — generated output images (not committed)
-- `docs/` — build notes, diagrams, competition documentation
-
-## Build order
-1. Desktop software prototype
-2. Raspberry Pi port + optimization
-3. Hardware integration (e-paper, button, solar + battery)
+## Environment variables
+- `SOLIS_PROFILE=desktop|pi` (default: `desktop`)
+- `SOLIS_STEPS=<int>`
+- `SOLIS_PREVIEW_EVERY=<int>`
+- `SOLIS_HEADLESS=1` (run without display window)
+- `SOLIS_SAVE_FINAL=0|1` (default: `1`)
