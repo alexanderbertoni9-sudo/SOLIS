@@ -35,6 +35,11 @@ cd SOLIS
 - Keep at least 8-12 GB free disk space for dependencies, cache, and output.
 - Recommended Python: 3.10+.
 
+## Platform Notes (Important)
+- This setup targets macOS and Linux desktops/laptops with sufficient CPU/GPU resources.
+- Raspberry Pi is not a supported target for the default Stable Diffusion pipeline; expect slow performance or failures due to memory and compute limits.
+- If you intend to experiment on a Raspberry Pi, treat it as an advanced, custom setup and expect to adapt the model/requirements.
+
 ## Project Structure
 - `run.sh`: single launch command.
 - `setup.sh`: optional pre-install step.

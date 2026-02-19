@@ -5,7 +5,10 @@
 chmod +x run.sh
 ```
 
-## Not enough space on Raspberry Pi
+## Raspberry Pi note (unsupported)
+The default Stable Diffusion setup is not supported on Raspberry Pi. If you try anyway, expect extremely slow performance and memory errors.
+
+## Not enough space on Raspberry Pi (experimental only)
 Check free space:
 ```bash
 df -h
