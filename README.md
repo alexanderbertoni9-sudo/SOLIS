@@ -14,7 +14,8 @@ SOLIS now uses a lightweight local model designed to run on Raspberry Pi.
 ```
 
 Generated file:
-- `output/solis_latest.png`
+- `output/solis_YYYYMMDD_HHMMSS_microseconds_<prompt>_s<seed>_<styleid>_<id>.png` (new unique file each run)
+- `output/solis_latest.png` (always updated copy of newest image)
 - `./run.sh` opens the image in fullscreen on Raspberry Pi desktop.
 - Press `Esc` or `q` to close fullscreen.
 

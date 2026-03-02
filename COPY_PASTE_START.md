@@ -20,7 +20,8 @@ You should be inside the project folder before running commands.
 - Press `Esc` or `q` to close fullscreen.
 
 Your image will be saved here:
-- `output/solis_latest.png`
+- `output/solis_YYYYMMDD_HHMMSS_microseconds_<prompt>_s<seed>_<styleid>_<id>.png`
+- `output/solis_latest.png` (copy of newest image)
 
 ## 4) Generate with your own prompt (optional)
 ```bash

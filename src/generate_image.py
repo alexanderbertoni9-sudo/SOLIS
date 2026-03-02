@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import hashlib
 import math
 import os
 import random
+import re
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -44,6 +46,16 @@ def _mix(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[in
 
 def _clamp(v: int, lo: int = 0, hi: int = 255) -> int:
     return max(lo, min(hi, v))
+
+
+def _style_id(prompt: str) -> str:
+    return hashlib.sha256(prompt.strip().lower().encode("utf-8")).hexdigest()[:8]
+
+
+def _slug_prompt(prompt: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", prompt.strip().lower())
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    return slug[:36] if slug else "scene"
 
 
 @dataclass
@@ -359,10 +371,22 @@ def generate_image(
     model = LocalImageModel(prompt=prompt, width=width, height=height, seed=seed)
     image = model.render()
 
+    style_id = _style_id(prompt)
     if output_path is None:
-        output_path = os.path.join(OUTPUT_DIR, "solis_latest.png")
+        stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+        slug = _slug_prompt(prompt)
+        nonce = os.urandom(2).hex()
+        base_name = f"solis_{stamp}_{slug}_s{seed}_{style_id}_{nonce}"
+        output_path = os.path.join(OUTPUT_DIR, f"{base_name}.png")
+        n = 1
+        while os.path.exists(output_path):
+            output_path = os.path.join(OUTPUT_DIR, f"{base_name}_{n}.png")
+            n += 1
 
     image.save(output_path, format="PNG")
+    latest_path = os.path.join(OUTPUT_DIR, "solis_latest.png")
+    if output_path != latest_path:
+        image.save(latest_path, format="PNG")
     return output_path
 
 
@@ -465,7 +489,7 @@ def main() -> None:
     print("Generating image locally...")
     print(f"Prompt: {prompt}")
     print("Model: local-lightweight-v1")
-    print(f"Style ID: {hashlib.sha256(prompt.strip().lower().encode('utf-8')).hexdigest()[:8]}")
+    print(f"Style ID: {_style_id(prompt)}")
     print(f"Size: {args.width}x{args.height}")
     print(f"Seed: {seed}")
 

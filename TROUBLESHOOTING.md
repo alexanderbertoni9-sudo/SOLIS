@@ -42,6 +42,7 @@ Use Python 3.9 or newer.
 ## Image did not auto-open on Pi
 The image is still saved at:
 - `output/solis_latest.png`
+- `output/solis_*.png` (new uniquely named files)
 
 Install tkinter if fullscreen window does not launch:
 ```bash

@@ -19,4 +19,5 @@
 ```
 
 ## Output
-- `output/solis_latest.png`
+- `output/solis_YYYYMMDD_HHMMSS_microseconds_<prompt>_s<seed>_<styleid>_<id>.png` (new image each run)
+- `output/solis_latest.png` (latest copy)
