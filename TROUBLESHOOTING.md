@@ -44,6 +44,8 @@ The image is still saved at:
 - `output/solis_latest.png`
 - `output/solis_*.png` (new uniquely named files)
 
+If Terminal says viewer was skipped because no display is available, run the printed command from your desktop session.
+
 Install tkinter if fullscreen window does not launch:
 ```bash
 sudo apt update
@@ -52,5 +54,5 @@ sudo apt install -y python3-tk
 
 If needed, open it manually:
 ```bash
-xdg-open output/solis_latest.png
+xdg-open "/absolute/path/to/your/new/image.png"
 ```

@@ -7,6 +7,7 @@ import math
 import os
 import random
 import re
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -57,6 +58,59 @@ def _slug_prompt(prompt: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", prompt.strip().lower())
     slug = re.sub(r"-+", "-", slug).strip("-")
     return slug[:36] if slug else "scene"
+
+
+def verify_generated_image(path: str) -> tuple[bool, str, int]:
+    abs_path = os.path.abspath(path)
+    if not os.path.exists(abs_path):
+        return False, "File was not created.", 0
+
+    try:
+        size_bytes = os.path.getsize(abs_path)
+    except OSError as exc:
+        return False, f"Could not read file size: {exc}", 0
+
+    if size_bytes <= 0:
+        return False, "File was created but is empty.", size_bytes
+
+    try:
+        with Image.open(abs_path) as img:
+            img.verify()
+    except Exception as exc:
+        return False, f"Generated file is not a valid image: {exc}", size_bytes
+
+    return True, "Image file is valid.", size_bytes
+
+
+def manual_open_command(path: str) -> str:
+    abs_path = os.path.abspath(path)
+    if sys.platform == "darwin":
+        return f"open {shlex.quote(abs_path)}"
+    if os.name == "nt":
+        return f'start "" "{abs_path}"'
+    return f'xdg-open "{abs_path}"'
+
+
+def detect_display_context() -> tuple[bool, str]:
+    if sys.platform.startswith("linux"):
+        display = os.environ.get("DISPLAY")
+        wayland = os.environ.get("WAYLAND_DISPLAY")
+        if not display and not wayland:
+            return False, "DISPLAY/WAYLAND_DISPLAY is not set in this terminal session."
+
+    try:
+        import tkinter as tk
+    except Exception as exc:
+        return False, f"tkinter import failed: {exc}"
+
+    try:
+        root = tk.Tk()
+        root.withdraw()
+        root.update_idletasks()
+        root.destroy()
+        return True, "Display context is available."
+    except Exception as exc:
+        return False, f"Tk display initialization failed: {exc}"
 
 
 @dataclass
@@ -432,33 +486,39 @@ def generate_image(
     latest_path = os.path.join(OUTPUT_DIR, "solis_latest.png")
     if output_path != latest_path:
         image.save(latest_path, format="PNG")
+
+    valid, reason, _ = verify_generated_image(output_path)
+    if not valid:
+        raise RuntimeError(f"Image generation failed verification. {reason}")
+
     return output_path
 
 
-def open_image(path: str) -> bool:
+def open_image(path: str) -> tuple[bool, str]:
+    abs_path = os.path.abspath(path)
     try:
         if sys.platform == "darwin":
-            subprocess.Popen(["open", path])
-            return True
+            subprocess.Popen(["open", abs_path])
+            return True, "Opened with macOS open."
         if os.name == "nt":
-            os.startfile(path)  # type: ignore[attr-defined]
-            return True
+            os.startfile(abs_path)  # type: ignore[attr-defined]
+            return True, "Opened with Windows startfile."
         subprocess.Popen(
-            ["xdg-open", path],
+            ["xdg-open", abs_path],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        return True
-    except Exception:
-        return False
+        return True, "Opened with xdg-open."
+    except Exception as exc:
+        return False, str(exc)
 
 
-def show_image_fullscreen(path: str) -> bool:
+def show_image_fullscreen(path: str) -> tuple[bool, str]:
     try:
         import tkinter as tk
         from PIL import ImageTk
-    except Exception:
-        return False
+    except Exception as exc:
+        return False, f"Fullscreen viewer dependency error: {exc}"
 
     try:
         root = tk.Tk()
@@ -466,12 +526,11 @@ def show_image_fullscreen(path: str) -> bool:
         root.attributes("-fullscreen", True)
         root.bind("<Escape>", lambda _event: root.destroy())
         root.bind("q", lambda _event: root.destroy())
-        root.bind("<Button-1>", lambda _event: root.destroy())
 
         sw = root.winfo_screenwidth()
         sh = root.winfo_screenheight()
 
-        img = Image.open(path).convert("RGB")
+        img = Image.open(os.path.abspath(path)).convert("RGB")
         fitted = ImageOps.contain(img, (sw, sh), Image.Resampling.LANCZOS)
         tk_img = ImageTk.PhotoImage(fitted)
 
@@ -481,9 +540,9 @@ def show_image_fullscreen(path: str) -> bool:
         canvas.image = tk_img
 
         root.mainloop()
-        return True
-    except Exception:
-        return False
+        return True, "Fullscreen viewer closed normally."
+    except Exception as exc:
+        return False, str(exc)
 
 
 def main() -> None:
@@ -546,26 +605,51 @@ def main() -> None:
         else:
             print(f"[{percent:3d}%] {stage}")
 
-    path = generate_image(
-        prompt=prompt,
-        width=args.width,
-        height=args.height,
-        seed=seed,
-        output_path=args.out,
-        progress_cb=report_progress,
-    )
+    try:
+        path = generate_image(
+            prompt=prompt,
+            width=args.width,
+            height=args.height,
+            seed=seed,
+            output_path=args.out,
+            progress_cb=report_progress,
+        )
+    except RuntimeError as exc:
+        if is_tty:
+            print()
+        print(f"Image generation failed: {exc}")
+        raise SystemExit(1) from exc
     if is_tty:
         print()
 
-    print(f"Saved: {path}")
+    abs_path = os.path.abspath(path)
+    valid, verify_reason, size_bytes = verify_generated_image(abs_path)
+    if not valid:
+        print(f"Image verification failed after save: {verify_reason}")
+        raise SystemExit(1)
+
+    size_kb = size_bytes / 1024.0
+    print(f"Image generated successfully: {abs_path}")
+    print(f"File size: {size_kb:.1f} KB")
     if not args.no_open:
-        print("Opening fullscreen viewer (Esc or q to close)...")
-        if show_image_fullscreen(path):
-            print("Closed fullscreen viewer.")
-        elif open_image(path):
-            print("Opened non-fullscreen image viewer.")
+        context_ok, context_reason = detect_display_context()
+        if not context_ok:
+            print(f"Image generated successfully; viewer skipped: {context_reason}")
+            print(f'Open from desktop session with: {manual_open_command(abs_path)}')
         else:
-            print("Could not auto-open viewer. Open the file manually.")
+            print("Opening fullscreen viewer (Esc or q to close)...")
+            fullscreen_ok, fullscreen_reason = show_image_fullscreen(abs_path)
+            if fullscreen_ok:
+                print("Closed fullscreen viewer.")
+            else:
+                print(f"Fullscreen viewer failed: {fullscreen_reason}")
+                print("Trying non-fullscreen image viewer...")
+                opened, open_reason = open_image(abs_path)
+                if opened:
+                    print("Opened non-fullscreen image viewer.")
+                else:
+                    print(f"Could not auto-open viewer: {open_reason}")
+                    print(f'Open manually with: {manual_open_command(abs_path)}')
 
 
 if __name__ == "__main__":

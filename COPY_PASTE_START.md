@@ -18,6 +18,7 @@ You should be inside the project folder before running commands.
 - Press Enter to use the default prompt.
 - On Raspberry Pi desktop, the image opens in fullscreen.
 - Press `Esc` or `q` to close fullscreen.
+- If you launched from a terminal without GUI display access, it will still save the image and print the `xdg-open` command for desktop session.
 
 Your image will be saved here:
 - `output/solis_YYYYMMDD_HHMMSS_microseconds_<prompt>_s<seed>_<styleid>_<id>.png`

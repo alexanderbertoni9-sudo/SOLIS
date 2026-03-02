@@ -18,6 +18,7 @@ Generated file:
 - `output/solis_latest.png` (always updated copy of newest image)
 - `./run.sh` opens the image in fullscreen on Raspberry Pi desktop.
 - Press `Esc` or `q` to close fullscreen.
+- If run from a terminal session without GUI display access, image generation still succeeds and the script prints an `xdg-open` command to run from desktop session.
 
 ## Example Prompt
 ```bash
