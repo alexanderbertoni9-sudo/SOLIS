@@ -42,6 +42,10 @@ def _mix(a: tuple[int, int, int], b: tuple[int, int, int], t: float) -> tuple[in
     )
 
 
+def _clamp(v: int, lo: int = 0, hi: int = 255) -> int:
+    return max(lo, min(hi, v))
+
+
 @dataclass
 class LocalImageModel:
     prompt: str
@@ -49,8 +53,23 @@ class LocalImageModel:
     height: int
     seed: int
 
-    def _digest(self) -> bytes:
-        return hashlib.sha256(f"{self.prompt}|{self.seed}".encode("utf-8")).digest()
+    def _prompt_digest(self) -> bytes:
+        return hashlib.sha256(self.prompt.strip().lower().encode("utf-8")).digest()
+
+    def _effective_seed(self) -> int:
+        prompt_bits = int.from_bytes(self._prompt_digest()[:8], byteorder="big")
+        return (self.seed ^ prompt_bits) & 0x7FFFFFFFFFFFFFFF
+
+    def _color_shift(self) -> tuple[int, int, int]:
+        d = self._prompt_digest()
+        return ((d[8] % 41) - 20, (d[9] % 41) - 20, (d[10] % 41) - 20)
+
+    def _shift_color(self, color: tuple[int, int, int], shift: tuple[int, int, int]) -> tuple[int, int, int]:
+        return (
+            _clamp(color[0] + shift[0]),
+            _clamp(color[1] + shift[1]),
+            _clamp(color[2] + shift[2]),
+        )
 
     def _contains_any(self, words: tuple[str, ...]) -> bool:
         p = self.prompt.lower()
@@ -280,9 +299,13 @@ class LocalImageModel:
             d.rectangle((x - col_w // 2, base_y - h // 2, x + col_w // 2, base_y), fill=(164, 146, 128, 255))
 
     def render(self) -> Image.Image:
-        rng = random.Random(self.seed)
+        rng = random.Random(self._effective_seed())
         profile = self._profile()
         sky_top, sky_bottom, sun_color = self._sky_palette(profile)
+        shift = self._color_shift()
+        sky_top = self._shift_color(sky_top, shift)
+        sky_bottom = self._shift_color(sky_bottom, shift)
+        sun_color = self._shift_color(sun_color, shift)
 
         scene = self._build_gradient(sky_top, sky_bottom).convert("RGBA")
         self._draw_sun_or_moon(scene, profile, rng, sun_color)
@@ -291,7 +314,9 @@ class LocalImageModel:
             self._draw_stars(scene, rng)
 
         d = ImageDraw.Draw(scene, "RGBA")
-        horizon_y = int(self.height * (0.57 if not profile.has_ocean else 0.54))
+        horizon_base = 0.57 if not profile.has_ocean else 0.54
+        horizon_jitter = (self._prompt_digest()[11] % 11 - 5) / 100.0
+        horizon_y = int(self.height * (horizon_base + horizon_jitter))
         if profile.has_ocean:
             self._draw_ocean(d, horizon_y, rng)
         else:
@@ -407,6 +432,7 @@ def main() -> None:
     print("Generating image locally...")
     print(f"Prompt: {prompt}")
     print("Model: local-lightweight-v1")
+    print(f"Style ID: {hashlib.sha256(prompt.strip().lower().encode('utf-8')).hexdigest()[:8]}")
     print(f"Size: {args.width}x{args.height}")
     print(f"Seed: {seed}")
 
