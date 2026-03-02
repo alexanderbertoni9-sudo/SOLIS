@@ -89,6 +89,7 @@ class LocalImageModel:
         return any(w in p for w in words)
 
     def _profile(self) -> PromptProfile:
+        d = self._prompt_digest()
         renewable = self._contains_any(
             ("renewable", "clean energy", "green energy", "sustainable", "solar", "wind")
         )
@@ -97,7 +98,7 @@ class LocalImageModel:
         cloudy = stormy or self._contains_any(("cloud", "mist", "fog", "overcast"))
         has_ocean = self._contains_any(("ocean", "sea", "coast", "beach", "shore"))
         has_mountains = self._contains_any(("mountain", "alps", "peaks", "cliff"))
-        has_hills = self._contains_any(("hill", "valley", "meadow", "grassland")) or not has_mountains
+        has_hills = self._contains_any(("hill", "valley", "meadow", "grassland"))
         has_city = self._contains_any(("city", "urban", "skyline", "buildings", "downtown")) or futuristic
         has_wind = self._contains_any(("wind turbine", "wind farm", "turbine", "windmill"))
         has_solar = self._contains_any(("solar", "solar panel", "photovoltaic", "pv"))
@@ -108,6 +109,9 @@ class LocalImageModel:
             has_wind = True
             has_solar = True
 
+        has_time_word = self._contains_any(
+            ("night", "moon", "stars", "midnight", "sunset", "dusk", "evening", "golden hour", "sunrise", "dawn", "morning")
+        )
         if self._contains_any(("night", "moon", "stars", "midnight")):
             time_of_day = "night"
         elif self._contains_any(("sunset", "dusk", "evening", "golden hour")):
@@ -117,8 +121,28 @@ class LocalImageModel:
         else:
             time_of_day = "day"
 
+        # If prompt does not specify enough scene info, use prompt hash fallback
+        # so different prompts still create clearly different scenes.
+        if not has_time_word:
+            time_of_day = ("day", "sunrise", "sunset", "night")[d[0] % 4]
+        if not (stormy or cloudy):
+            cloudy = d[1] % 3 == 0
+        if not (has_ocean or has_mountains or has_hills):
+            terrain_choice = d[2] % 3
+            if terrain_choice == 0:
+                has_ocean = True
+            elif terrain_choice == 1:
+                has_mountains = True
+            else:
+                has_hills = True
         if not (has_city or has_wind or has_solar or has_temple):
-            has_city = True
+            object_choice = d[3] % 4
+            has_city = object_choice == 0
+            has_wind = object_choice == 1
+            has_solar = object_choice == 2
+            has_temple = object_choice == 3
+        if not has_hills and not has_ocean and not has_mountains:
+            has_hills = True
 
         return PromptProfile(
             time_of_day=time_of_day,
