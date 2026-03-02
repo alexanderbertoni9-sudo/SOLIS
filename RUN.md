@@ -10,7 +10,8 @@
 ./run.sh
 ```
 - This asks for a prompt.
-- It saves the image and opens it automatically on Raspberry Pi desktop.
+- It saves the image and opens it in fullscreen on Raspberry Pi desktop.
+- Press `Esc` or `q` to close fullscreen.
 
 ## Optional: custom prompt
 ```bash

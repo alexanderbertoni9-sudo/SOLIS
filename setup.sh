@@ -23,5 +23,16 @@ python -m pip install -r requirements.txt
 echo "[4/4] Ensuring output/ exists..."
 mkdir -p output
 
+if ! python -c "import tkinter" >/dev/null 2>&1; then
+  echo "Tkinter not found (needed for fullscreen display)."
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "Attempting to install python3-tk (may ask for sudo password)..."
+    sudo apt-get update
+    sudo apt-get install -y python3-tk
+  else
+    echo "Install tkinter manually for your OS to enable fullscreen display."
+  fi
+fi
+
 echo "=== DONE ==="
 echo "Next step: ./run.sh"

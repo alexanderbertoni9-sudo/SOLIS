@@ -15,7 +15,8 @@ SOLIS now uses a lightweight local model designed to run on Raspberry Pi.
 
 Generated file:
 - `output/solis_latest.png`
-- `./run.sh` also opens the image viewer automatically on Raspberry Pi desktop.
+- `./run.sh` opens the image in fullscreen on Raspberry Pi desktop.
+- Press `Esc` or `q` to close fullscreen.
 
 ## Example Prompt
 ```bash

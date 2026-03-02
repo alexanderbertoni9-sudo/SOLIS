@@ -16,7 +16,8 @@ You should be inside the project folder before running commands.
 ```
 - You will be asked for a prompt.
 - Press Enter to use the default prompt.
-- On Raspberry Pi desktop, the image opens automatically.
+- On Raspberry Pi desktop, the image opens in fullscreen.
+- Press `Esc` or `q` to close fullscreen.
 
 Your image will be saved here:
 - `output/solis_latest.png`

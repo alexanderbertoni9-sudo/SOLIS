@@ -384,6 +384,39 @@ def open_image(path: str) -> bool:
         return False
 
 
+def show_image_fullscreen(path: str) -> bool:
+    try:
+        import tkinter as tk
+        from PIL import ImageTk
+    except Exception:
+        return False
+
+    try:
+        root = tk.Tk()
+        root.configure(bg="black")
+        root.attributes("-fullscreen", True)
+        root.bind("<Escape>", lambda _event: root.destroy())
+        root.bind("q", lambda _event: root.destroy())
+        root.bind("<Button-1>", lambda _event: root.destroy())
+
+        sw = root.winfo_screenwidth()
+        sh = root.winfo_screenheight()
+
+        img = Image.open(path).convert("RGB")
+        fitted = ImageOps.contain(img, (sw, sh), Image.Resampling.LANCZOS)
+        tk_img = ImageTk.PhotoImage(fitted)
+
+        canvas = tk.Canvas(root, width=sw, height=sh, bg="black", highlightthickness=0)
+        canvas.pack(fill="both", expand=True)
+        canvas.create_image(sw // 2, sh // 2, image=tk_img, anchor="center")
+        canvas.image = tk_img
+
+        root.mainloop()
+        return True
+    except Exception:
+        return False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate one image with a lightweight local model."
@@ -446,8 +479,11 @@ def main() -> None:
 
     print(f"Saved: {path}")
     if not args.no_open:
-        if open_image(path):
-            print("Opened image viewer.")
+        print("Opening fullscreen viewer (Esc or q to close)...")
+        if show_image_fullscreen(path):
+            print("Closed fullscreen viewer.")
+        elif open_image(path):
+            print("Opened non-fullscreen image viewer.")
         else:
             print("Could not auto-open viewer. Open the file manually.")
 

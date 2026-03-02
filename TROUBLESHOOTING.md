@@ -43,6 +43,12 @@ Use Python 3.9 or newer.
 The image is still saved at:
 - `output/solis_latest.png`
 
+Install tkinter if fullscreen window does not launch:
+```bash
+sudo apt update
+sudo apt install -y python3-tk
+```
+
 If needed, open it manually:
 ```bash
 xdg-open output/solis_latest.png
