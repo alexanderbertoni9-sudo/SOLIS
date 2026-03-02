@@ -10,6 +10,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
+from typing import Callable
 
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
 
@@ -310,8 +311,13 @@ class LocalImageModel:
             x = cx + i * (w // 6)
             d.rectangle((x - col_w // 2, base_y - h // 2, x + col_w // 2, base_y), fill=(164, 146, 128, 255))
 
-    def render(self) -> Image.Image:
+    def render(
+        self,
+        progress_cb: Callable[[int, str], None] | None = None,
+    ) -> Image.Image:
         rng = random.Random(self._effective_seed())
+        if progress_cb:
+            progress_cb(5, "Analyzing prompt")
         profile = self._profile()
         sky_top, sky_bottom, sun_color = self._sky_palette(profile)
         shift = self._color_shift()
@@ -319,7 +325,11 @@ class LocalImageModel:
         sky_bottom = self._shift_color(sky_bottom, shift)
         sun_color = self._shift_color(sun_color, shift)
 
+        if progress_cb:
+            progress_cb(15, "Painting sky")
         scene = self._build_gradient(sky_top, sky_bottom).convert("RGBA")
+        if progress_cb:
+            progress_cb(25, "Drawing sun/moon and clouds")
         self._draw_sun_or_moon(scene, profile, rng, sun_color)
         self._draw_clouds(scene, profile, rng)
         if profile.time_of_day == "night":
@@ -329,11 +339,15 @@ class LocalImageModel:
         horizon_base = 0.57 if not profile.has_ocean else 0.54
         horizon_jitter = (self._prompt_digest()[11] % 11 - 5) / 100.0
         horizon_y = int(self.height * (horizon_base + horizon_jitter))
+        if progress_cb:
+            progress_cb(35, "Building landscape")
         if profile.has_ocean:
             self._draw_ocean(d, horizon_y, rng)
         else:
             d.rectangle((0, horizon_y, self.width, self.height), fill=(70, 126, 82, 255))
 
+        if progress_cb:
+            progress_cb(50, "Drawing scene objects")
         if profile.has_mountains:
             self._draw_mountains(d, horizon_y, rng)
         if profile.has_hills:
@@ -348,14 +362,20 @@ class LocalImageModel:
             self._draw_temple(d, horizon_y)
 
         # Add subtle photographic grain + polish for a less flat result.
+        if progress_cb:
+            progress_cb(75, "Applying texture")
         grain = Image.effect_noise((self.width // 2, self.height // 2), 14).convert("L")
         grain = grain.resize((self.width, self.height), Image.Resampling.BICUBIC)
         grain_rgb = ImageOps.colorize(grain, (40, 40, 40), (200, 200, 200)).convert("RGBA")
         scene = ImageChops.soft_light(scene, grain_rgb)
 
+        if progress_cb:
+            progress_cb(90, "Final polish")
         polished = scene.filter(ImageFilter.GaussianBlur(radius=0.35))
         polished = ImageEnhance.Contrast(polished).enhance(1.10)
         polished = ImageEnhance.Color(polished).enhance(1.12)
+        if progress_cb:
+            progress_cb(100, "Done")
         return polished.convert("RGB")
 
 
@@ -365,11 +385,12 @@ def generate_image(
     height: int,
     seed: int,
     output_path: str | None = None,
+    progress_cb: Callable[[int, str], None] | None = None,
 ) -> str:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
 
     model = LocalImageModel(prompt=prompt, width=width, height=height, seed=seed)
-    image = model.render()
+    image = model.render(progress_cb=progress_cb)
 
     style_id = _style_id(prompt)
     if output_path is None:
@@ -493,13 +514,24 @@ def main() -> None:
     print(f"Size: {args.width}x{args.height}")
     print(f"Seed: {seed}")
 
+    is_tty = sys.stdout.isatty()
+
+    def report_progress(percent: int, stage: str) -> None:
+        if is_tty:
+            print(f"\r[{percent:3d}%] {stage:<24}", end="", flush=True)
+        else:
+            print(f"[{percent:3d}%] {stage}")
+
     path = generate_image(
         prompt=prompt,
         width=args.width,
         height=args.height,
         seed=seed,
         output_path=args.out,
+        progress_cb=report_progress,
     )
+    if is_tty:
+        print()
 
     print(f"Saved: {path}")
     if not args.no_open:
