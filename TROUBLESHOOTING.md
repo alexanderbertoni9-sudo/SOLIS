@@ -45,6 +45,12 @@ The image is still saved at:
 - `output/solis_*.png` (new uniquely named files)
 
 If Terminal says viewer was skipped because no display is available, run the printed command from your desktop session.
+You can also retry from remote terminal with:
+```bash
+export DISPLAY=:0
+export XAUTHORITY="$HOME/.Xauthority"
+./run.sh
+```
 
 Install tkinter if fullscreen window does not launch:
 ```bash

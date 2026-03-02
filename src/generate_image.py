@@ -113,6 +113,27 @@ def detect_display_context() -> tuple[bool, str]:
         return False, f"Tk display initialization failed: {exc}"
 
 
+def try_attach_linux_desktop_display() -> tuple[bool, str]:
+    if not sys.platform.startswith("linux"):
+        return False, "Auto-attach is only supported on Linux."
+
+    x11_socket = "/tmp/.X11-unix/X0"
+    if not os.path.exists(x11_socket):
+        return False, "No X11 desktop socket found at /tmp/.X11-unix/X0."
+
+    if not os.environ.get("DISPLAY"):
+        os.environ["DISPLAY"] = ":0"
+
+    xauthority = os.path.expanduser("~/.Xauthority")
+    if os.path.exists(xauthority) and not os.environ.get("XAUTHORITY"):
+        os.environ["XAUTHORITY"] = xauthority
+
+    ok, reason = detect_display_context()
+    if ok:
+        return True, f'Attached to desktop display (DISPLAY={os.environ.get("DISPLAY", "")}).'
+    return False, f"Auto-attach attempt failed: {reason}"
+
+
 @dataclass
 class LocalImageModel:
     prompt: str
@@ -633,10 +654,17 @@ def main() -> None:
     print(f"File size: {size_kb:.1f} KB")
     if not args.no_open:
         context_ok, context_reason = detect_display_context()
+        if not context_ok and sys.platform.startswith("linux"):
+            attached, attach_reason = try_attach_linux_desktop_display()
+            if attached:
+                context_ok, context_reason = True, attach_reason
+            else:
+                context_reason = f"{context_reason} {attach_reason}"
         if not context_ok:
             print(f"Image generated successfully; viewer skipped: {context_reason}")
             print(f'Open from desktop session with: {manual_open_command(abs_path)}')
         else:
+            print(context_reason)
             print("Opening fullscreen viewer (Esc or q to close)...")
             fullscreen_ok, fullscreen_reason = show_image_fullscreen(abs_path)
             if fullscreen_ok:
