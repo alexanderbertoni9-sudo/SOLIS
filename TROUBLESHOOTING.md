@@ -1,45 +1,40 @@
 # Troubleshooting
 
-## `./run.sh`: Permission denied
+## `./setup.sh` or `./run.sh`: Permission denied
 ```bash
+chmod +x setup.sh
 chmod +x run.sh
 ```
 
-## Raspberry Pi note (unsupported)
-The default Stable Diffusion setup is not supported on Raspberry Pi. If you try anyway, expect extremely slow performance and memory errors.
+## `.venv` missing when running `./run.sh`
+Run setup first:
+```bash
+./setup.sh
+```
 
-## Not enough space on Raspberry Pi (experimental only)
-Check free space:
+## `python3: command not found`
+Install Python 3:
 ```bash
-df -h
+sudo apt update
+sudo apt install -y python3 python3-venv python3-pip
 ```
-Free package and pip cache:
+
+## Pillow install failed on Raspberry Pi
+Install build tools and try setup again:
 ```bash
-sudo apt clean
-sudo apt autoremove -y
-rm -rf ~/.cache/pip
+sudo apt update
+sudo apt install -y libjpeg-dev zlib1g-dev libopenjp2-7
+./setup.sh
 ```
-Rebuild virtual environment:
+
+## Regenerate environment from scratch
 ```bash
 rm -rf .venv
-./run.sh
+./setup.sh
 ```
 
-## Install is too large
-- `torch` and `diffusers` are large by design.
-- Use a larger SD card (64 GB recommended for smoother operation).
-- Keep extra free space for model cache growth.
-
-## No fullscreen window appears
-- Make sure a monitor is connected before app launch.
-- If you are connected over SSH, run from the local desktop session.
-
-## App exits immediately
-Check Python:
+## Python version check
 ```bash
 python3 --version
 ```
-Use Python 3.10 or newer.
-
-## First run is very slow
-First run downloads model assets and builds local caches. Later runs are faster.
+Use Python 3.9 or newer.

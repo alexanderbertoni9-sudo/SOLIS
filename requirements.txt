@@ -1,7 +1,1 @@
 pillow
-torch
-diffusers
-transformers
-accelerate
-safetensors
-pygame
