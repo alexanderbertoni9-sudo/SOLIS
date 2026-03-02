@@ -15,6 +15,7 @@ SOLIS now uses a lightweight local model designed to run on Raspberry Pi.
 
 Generated file:
 - `output/solis_latest.png`
+- `./run.sh` also opens the image viewer automatically on Raspberry Pi desktop.
 
 ## Example Prompt
 ```bash
@@ -35,3 +36,8 @@ Generated file:
 ```bash
 ./run.sh --prompt "Solar panels under neon clouds" --width 640 --height 640 --seed 1234
 ```
+
+## Beginner Flow
+1. Run `./setup.sh` once.
+2. Run `./run.sh` each time you want a new image.
+3. Type a prompt when asked (or press Enter for default).

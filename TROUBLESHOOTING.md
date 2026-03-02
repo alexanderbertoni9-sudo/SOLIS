@@ -38,3 +38,12 @@ rm -rf .venv
 python3 --version
 ```
 Use Python 3.9 or newer.
+
+## Image did not auto-open on Pi
+The image is still saved at:
+- `output/solis_latest.png`
+
+If needed, open it manually:
+```bash
+xdg-open output/solis_latest.png
+```

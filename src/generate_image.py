@@ -5,6 +5,8 @@ import hashlib
 import math
 import os
 import random
+import subprocess
+import sys
 from dataclasses import dataclass
 
 from PIL import Image, ImageChops, ImageDraw, ImageEnhance, ImageFilter, ImageOps
@@ -117,13 +119,31 @@ def generate_image(
     return output_path
 
 
+def open_image(path: str) -> bool:
+    try:
+        if sys.platform == "darwin":
+            subprocess.Popen(["open", path])
+            return True
+        if os.name == "nt":
+            os.startfile(path)  # type: ignore[attr-defined]
+            return True
+        subprocess.Popen(
+            ["xdg-open", path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+    except Exception:
+        return False
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Generate one image with a lightweight local model."
     )
     parser.add_argument(
         "--prompt",
-        default=DEFAULT_PROMPT,
+        default=None,
         help="Text description of the image to generate.",
     )
     parser.add_argument("--width", type=int, default=DEFAULT_WIDTH, help="Image width in pixels.")
@@ -144,18 +164,32 @@ def main() -> None:
         default=None,
         help="Optional output file path. Example: output/my_image.jpg",
     )
+    parser.add_argument(
+        "--no-open",
+        action="store_true",
+        help="Do not open the generated image after saving.",
+    )
 
     args = parser.parse_args()
     seed = args.seed if args.seed is not None else random.randint(1, 99999999)
+    prompt = args.prompt
+    if prompt is None:
+        if sys.stdin.isatty():
+            typed = input(
+                f'Prompt (press Enter for default: "{DEFAULT_PROMPT}"): '
+            ).strip()
+            prompt = typed or DEFAULT_PROMPT
+        else:
+            prompt = DEFAULT_PROMPT
 
     print("Generating image locally...")
-    print(f"Prompt: {args.prompt}")
+    print(f"Prompt: {prompt}")
     print("Model: local-lightweight-v1")
     print(f"Size: {args.width}x{args.height}")
     print(f"Seed: {seed}")
 
     path = generate_image(
-        prompt=args.prompt,
+        prompt=prompt,
         width=args.width,
         height=args.height,
         seed=seed,
@@ -163,6 +197,11 @@ def main() -> None:
     )
 
     print(f"Saved: {path}")
+    if not args.no_open:
+        if open_image(path):
+            print("Opened image viewer.")
+        else:
+            print("Could not auto-open viewer. Open the file manually.")
 
 
 if __name__ == "__main__":
