@@ -139,7 +139,7 @@ class LocalTextToImageModel:
         except Exception as exc:
             raise RuntimeError(
                 "Missing or incompatible text-to-image dependencies. "
-                "Run ./setup.sh to install pinned versions."
+                f"Run ./setup.sh to install pinned versions. Details: {exc}"
             ) from exc
 
         width, height = self._prepare_size()

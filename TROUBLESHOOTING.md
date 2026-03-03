@@ -34,6 +34,14 @@ rm -rf .venv
 ./setup.sh
 ```
 
+## Error mentions `torchvision` or `torchaudio`
+Those optional packages can conflict with your torch build. Remove them:
+```bash
+source .venv/bin/activate
+python -m pip uninstall -y torchvision torchaudio
+./run.sh
+```
+
 ## First run is slow
 This is expected. The model downloads and initializes on first run.
 
