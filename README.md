@@ -1,6 +1,6 @@
 # SOLIS
 
-SOLIS now uses a lightweight local model designed to run on Raspberry Pi.
+SOLIS now uses a full local text-to-image model.
 
 ## Goal
 - `setup.sh`: install everything once.
@@ -22,13 +22,14 @@ Generated file:
 
 ## Example Prompt
 ```bash
-./run.sh --prompt "A glowing wind farm over green hills at sunrise"
+./run.sh --prompt "a picture of a dog and a cat"
 ```
 
-## Why This Version Is Lightweight
-- Fully local generation (no cloud API calls).
-- Only one Python dependency: Pillow.
-- No `torch`, no `diffusers`, no large model downloads.
+## Model Notes
+- Fully local generation after model download.
+- First run downloads the model to local cache and can take time.
+- This branch uses `segmind/tiny-sd` by default (smallest practical full text-to-image setup).
+- You can change model with `--model`.
 
 ## Files You Need
 - `setup.sh`
@@ -37,7 +38,7 @@ Generated file:
 
 ## Optional Arguments
 ```bash
-./run.sh --prompt "Solar panels under neon clouds" --width 640 --height 640 --seed 1234
+./run.sh --prompt "a cinematic cat portrait" --width 512 --height 512 --steps 20 --seed 1234
 ```
 
 ## Beginner Flow

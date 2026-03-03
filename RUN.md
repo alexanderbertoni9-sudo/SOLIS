@@ -4,6 +4,7 @@
 ```bash
 ./setup.sh
 ```
+- First run may still take longer while model files download.
 
 ## 2) Generate an image
 ```bash
@@ -18,7 +19,17 @@
 
 ## Optional: custom prompt
 ```bash
-./run.sh --prompt "A clean energy city at sunset"
+./run.sh --prompt "a picture of a dog and a cat"
+```
+
+## Optional: select model
+```bash
+./run.sh --model "segmind/tiny-sd" --prompt "a red fox in snow"
+```
+
+## Optional: lower memory usage
+```bash
+./run.sh --width 512 --height 512 --steps 15
 ```
 
 ## Output

@@ -19,18 +19,27 @@ sudo apt update
 sudo apt install -y python3 python3-venv python3-pip
 ```
 
-## Pillow install failed on Raspberry Pi
+## Dependency install failed on Raspberry Pi
 Install build tools and try setup again:
 ```bash
 sudo apt update
-sudo apt install -y libjpeg-dev zlib1g-dev libopenjp2-7
+sudo apt install -y libjpeg-dev zlib1g-dev libopenjp2-7 build-essential
 ./setup.sh
 ```
+
+## First run is slow
+This is expected. The model downloads and initializes on first run.
 
 ## Regenerate environment from scratch
 ```bash
 rm -rf .venv
 ./setup.sh
+```
+
+## Out of memory or process killed
+Use lower settings:
+```bash
+./run.sh --width 512 --height 512 --steps 15
 ```
 
 ## Python version check

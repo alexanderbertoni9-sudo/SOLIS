@@ -1,1 +1,7 @@
 pillow
+torch
+diffusers
+transformers
+accelerate
+safetensors
+sentencepiece

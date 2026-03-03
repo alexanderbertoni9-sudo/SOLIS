@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")"
 
-echo "=== SOLIS local setup (Raspberry Pi friendly) ==="
+echo "=== SOLIS local text-to-image setup (Raspberry Pi) ==="
 
 if [ ! -d ".venv" ]; then
   echo "[1/4] Creating virtual environment (.venv)..."

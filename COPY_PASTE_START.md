@@ -19,6 +19,7 @@ You should be inside the project folder before running commands.
 - On Raspberry Pi desktop, the image opens in fullscreen.
 - Press `Esc` or `q` to close fullscreen.
 - If you launched from a terminal without GUI display access, it will still save the image and print the `xdg-open` command for desktop session.
+- First run may be slower because the text-to-image model downloads.
 
 Your image will be saved here:
 - `output/solis_YYYYMMDD_HHMMSS_microseconds_<prompt>_s<seed>_<styleid>_<id>.png`
@@ -26,10 +27,10 @@ Your image will be saved here:
 
 ## 4) Generate with your own prompt (optional)
 ```bash
-./run.sh --prompt "A bright solar-powered city, cinematic lighting"
+./run.sh --prompt "a picture of a dog and a cat"
 ```
 
 ## 5) Use a smaller image on Raspberry Pi (faster)
 ```bash
-./run.sh --prompt "Wind turbines over the ocean" --width 512 --height 512
+./run.sh --prompt "a picture of a dog and a cat" --width 512 --height 512 --steps 15
 ```
