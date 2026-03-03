@@ -12,6 +12,9 @@ SOLIS is a local text-to-image generator built for Raspberry Pi with live fullsc
 ./run.sh
 ```
 
+`./setup.sh` now installs Python deps and downloads/repairs a verified local model snapshot into `models/segmind-tiny-sd`.
+After setup completes, `./run.sh` uses local model files by default (no network needed for normal runs).
+
 ## What You See
 - Fullscreen window opens first.
 - You see the image being constructed during diffusion.
@@ -23,6 +26,7 @@ SOLIS is a local text-to-image generator built for Raspberry Pi with live fullsc
 
 ## Defaults
 - Model: `segmind/tiny-sd`
+- Model directory: `models/segmind-tiny-sd`
 - Size: `512x512`
 - Steps: `20`
 - Live preview: every step
@@ -33,8 +37,15 @@ SOLIS is a local text-to-image generator built for Raspberry Pi with live fullsc
 ```
 
 ## Notes For Pi
-- First run is slower because model files download once.
+- First setup is slower because model files download once.
 - For lower memory usage:
 ```bash
 ./run.sh --width 512 --height 512 --steps 15
+```
+
+## Repair Model Snapshot
+If model files were interrupted/corrupted:
+```bash
+rm -rf models/segmind-tiny-sd
+./setup.sh
 ```

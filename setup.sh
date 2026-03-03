@@ -4,28 +4,34 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 echo "=== SOLIS local text-to-image setup (Raspberry Pi) ==="
+MODEL_ID="${SOLIS_MODEL_ID:-segmind/tiny-sd}"
+MODEL_DIR="${SOLIS_MODEL_DIR:-models/segmind-tiny-sd}"
 
 if [ ! -d ".venv" ]; then
-  echo "[1/4] Creating virtual environment (.venv)..."
+  echo "[1/6] Creating virtual environment (.venv)..."
   python3 -m venv .venv
 else
-  echo "[1/4] .venv already exists."
+  echo "[1/6] .venv already exists."
 fi
 
 source .venv/bin/activate
 
-echo "[2/4] Upgrading pip..."
+echo "[2/6] Upgrading pip..."
 python -m pip install --upgrade pip
 
-echo "[3/4] Installing dependencies..."
+echo "[3/6] Installing dependencies..."
 python -m pip install -r requirements.txt
 
-echo "[3.5/4] Removing conflicting optional Torch packages (if present)..."
+echo "[3.5/6] Removing conflicting optional Torch packages (if present)..."
 python -m pip uninstall -y torchvision torchaudio >/dev/null 2>&1 || true
 
-echo "[4/4] Ensuring output/ exists..."
+echo "[4/6] Preparing local model snapshot..."
+python src/prepare_model.py --model-id "$MODEL_ID" --model-dir "$MODEL_DIR"
+
+echo "[5/6] Ensuring output/ exists..."
 mkdir -p output
 
+echo "[6/6] Running dependency compatibility checks..."
 python - <<'PY'
 from importlib.metadata import PackageNotFoundError, version
 
@@ -35,6 +41,7 @@ def major(pkg: str) -> int:
 try:
     t_major = major("transformers")
     d_major = major("diffusers")
+    _ = version("huggingface_hub")
 except Exception as exc:
     print(f"Dependency check failed: {exc}")
     raise SystemExit(1)

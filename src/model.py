@@ -2,20 +2,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Callable
+import os
 
 from PIL import Image
+from model_store import prepare_local_model, verify_local_model
 
 
 @dataclass
 class DiffusionConfig:
     prompt: str
     model_id: str
+    model_dir: str | None
     width: int
     height: int
     steps: int
     seed: int
     preview_every: int = 1
     guidance_scale: float = 7.5
+    auto_repair_model: bool = True
 
 
 class DiffusionModel:
@@ -32,7 +36,8 @@ class DiffusionModel:
         if torch_module.cuda.is_available():
             return "cuda", torch_module.float16
         if hasattr(torch_module.backends, "mps") and torch_module.backends.mps.is_available():
-            return "mps", torch_module.float16
+            # MPS float32 is slower but significantly more stable than float16.
+            return "mps", torch_module.float32
         return "cpu", torch_module.float32
 
     def generate(
@@ -51,23 +56,56 @@ class DiffusionModel:
             ) from exc
 
         if on_status:
-            on_status(f"Loading model: {self.cfg.model_id}")
+            if self.cfg.model_dir:
+                on_status(f"Loading local model: {self.cfg.model_dir}")
+            else:
+                on_status(f"Loading model: {self.cfg.model_id}")
 
         width, height = self._prepare_size()
         device, dtype = self._pick_device(torch)
 
+        model_source = self.cfg.model_id
+        local_files_only = False
+        if self.cfg.model_dir:
+            model_source = os.path.abspath(self.cfg.model_dir)
+            local_files_only = True
+            ok, missing = verify_local_model(model_source)
+            if not ok:
+                if self.cfg.auto_repair_model:
+                    if on_status:
+                        on_status("Local model snapshot incomplete. Attempting automatic repair...")
+                    prepare_local_model(self.cfg.model_id, model_source, on_status=on_status)
+                else:
+                    missing_text = "; ".join(missing)
+                    raise RuntimeError(
+                        "Local model snapshot is incomplete. "
+                        "Run ./setup.sh to repair it. "
+                        f"Missing: {missing_text}"
+                    )
+
         try:
             pipe = StableDiffusionPipeline.from_pretrained(
-                self.cfg.model_id,
+                model_source,
                 torch_dtype=dtype,
-                use_safetensors=True,
+                local_files_only=local_files_only,
+                safety_checker=None,
+                requires_safety_checker=False,
             )
             pipe = pipe.to(device)
+            pipe.enable_attention_slicing()
             pipe.set_progress_bar_config(disable=True)
         except Exception as exc:
+            details = f"{type(exc).__name__}: {exc}"
+            if local_files_only:
+                raise RuntimeError(
+                    f"Local model load failed from '{model_source}'. "
+                    "Run ./setup.sh to repair/re-download model files. "
+                    f"Details: {details}"
+                ) from exc
             raise RuntimeError(
                 f"Model load failed for '{self.cfg.model_id}'. "
-                "Check first-run download access and disk space."
+                "Check first-run download access and disk space. "
+                f"Details: {details}"
             ) from exc
 
         if on_status:
@@ -99,8 +137,8 @@ class DiffusionModel:
                     # Preview decode failures should not kill final generation.
                     pass
 
-        try:
-            result = pipe(
+        def run_inference():
+            return pipe(
                 prompt=self.cfg.prompt,
                 width=width,
                 height=height,
@@ -110,10 +148,34 @@ class DiffusionModel:
                 callback=callback,
                 callback_steps=1,
             )
+
+        try:
+            result = run_inference()
         except Exception as exc:
-            raise RuntimeError(
-                "Generation failed. Try --width 512 --height 512 --steps 15. "
-                f"Details: {exc}"
-            ) from exc
+            # On macOS/MPS, fallback to CPU for reliability when kernel failures occur.
+            if device == "mps":
+                if on_status:
+                    on_status("MPS generation failed; retrying on CPU for stability...")
+                details = f"{type(exc).__name__}: {exc}"
+                try:
+                    pipe = pipe.to("cpu")
+                    device = "cpu"
+                    try:
+                        generator = torch.Generator(device=device).manual_seed(self.cfg.seed)
+                    except Exception:
+                        generator = torch.Generator().manual_seed(self.cfg.seed)
+                    result = run_inference()
+                except Exception as exc2:
+                    details2 = f"{type(exc2).__name__}: {exc2}"
+                    raise RuntimeError(
+                        "Generation failed on MPS and CPU fallback. "
+                        "Try --width 512 --height 512 --steps 12. "
+                        f"MPS details: {details} | CPU details: {details2}"
+                    ) from exc2
+            else:
+                raise RuntimeError(
+                    "Generation failed. Try --width 512 --height 512 --steps 15. "
+                    f"Details: {type(exc).__name__}: {exc}"
+                ) from exc
 
         return result.images[0].convert("RGB")

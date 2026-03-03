@@ -10,13 +10,13 @@ import re
 import shlex
 import sys
 import threading
+from typing import Any
 
 from PIL import Image
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 from model import DiffusionConfig, DiffusionModel
-from viewer import FullscreenViewer, ViewerConfig
 
 DEFAULT_PROMPT = "A clean, futuristic city powered by renewable energy at sunrise"
 DEFAULT_MODEL = "segmind/tiny-sd"
@@ -28,6 +28,10 @@ DEFAULT_GUIDANCE_SCALE = 7.5
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = os.path.join(ROOT, "output")
+DEFAULT_MODEL_DIR = os.environ.get(
+    "SOLIS_MODEL_DIR",
+    os.path.join(ROOT, "models", "segmind-tiny-sd"),
+)
 
 
 def _style_id(prompt: str) -> str:
@@ -121,6 +125,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--prompt", default=None, help="Text prompt to generate.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Model id (Hugging Face).")
+    parser.add_argument(
+        "--model-dir",
+        default=None,
+        help=(
+            "Local model snapshot directory. "
+            "Defaults to a pre-downloaded local path for the default model."
+        ),
+    )
     parser.add_argument("--width", type=int, default=DEFAULT_WIDTH, help="Image width.")
     parser.add_argument("--height", type=int, default=DEFAULT_HEIGHT, help="Image height.")
     parser.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="Inference steps.")
@@ -157,10 +169,15 @@ def main() -> None:
     prompt = resolve_prompt(args.prompt)
     seed = args.seed if args.seed is not None else random.randint(1, 99999999)
     output_path = build_output_path(prompt, seed)
+    model_dir = args.model_dir
+    if model_dir is None and args.model == DEFAULT_MODEL:
+        model_dir = DEFAULT_MODEL_DIR
 
     print("Generating image locally...")
     print(f"Prompt: {prompt}")
     print(f"Model: {args.model}")
+    if model_dir:
+        print(f"Model source: {os.path.abspath(model_dir)}")
     print(f"Style ID: {_style_id(prompt)}")
     print(f"Size: {args.width}x{args.height}")
     print(f"Steps: {args.steps}")
@@ -169,6 +186,7 @@ def main() -> None:
     cfg = DiffusionConfig(
         prompt=prompt,
         model_id=args.model,
+        model_dir=model_dir,
         width=args.width,
         height=args.height,
         steps=args.steps,
@@ -178,7 +196,7 @@ def main() -> None:
     )
     model = DiffusionModel(cfg)
 
-    viewer: FullscreenViewer | None = None
+    viewer: Any = None
     display_reason = ""
     want_viewer = not args.no_open
     if want_viewer:
@@ -193,6 +211,7 @@ def main() -> None:
                 display_reason = f"{context_reason} {attach_reason}"
         if context_ok:
             try:
+                from viewer import FullscreenViewer, ViewerConfig
                 viewer = FullscreenViewer(ViewerConfig(title="SOLIS - Live Diffusion"))
                 viewer.show_loading("Loading model...")
             except Exception as exc:
@@ -314,6 +333,7 @@ def main() -> None:
 
     # Re-open viewer for final hold if display was available.
     try:
+        from viewer import FullscreenViewer, ViewerConfig
         viewer = FullscreenViewer(ViewerConfig(title="SOLIS - Final Image"))
         if display_reason:
             print(display_reason)

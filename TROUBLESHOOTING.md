@@ -37,6 +37,18 @@ rm -rf .venv
 ## First run is slow
 This is expected. The model downloads and initializes on first run.
 
+## `Model load failed` or `Local model snapshot is incomplete`
+Repair the local model snapshot:
+```bash
+rm -rf models/segmind-tiny-sd
+./setup.sh
+```
+
+Then run again:
+```bash
+./run.sh
+```
+
 ## Regenerate environment from scratch
 ```bash
 rm -rf .venv
@@ -71,3 +83,9 @@ If needed, open it manually:
 ```bash
 xdg-open "/absolute/path/to/your/new/image.png"
 ```
+
+## Verify local model folder exists
+```bash
+ls models/segmind-tiny-sd
+```
+If that folder is missing, run `./setup.sh` again.
