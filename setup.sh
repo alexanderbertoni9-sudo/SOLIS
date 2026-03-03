@@ -23,6 +23,28 @@ python -m pip install -r requirements.txt
 echo "[4/4] Ensuring output/ exists..."
 mkdir -p output
 
+python - <<'PY'
+import sys
+from importlib.metadata import version
+
+def major(pkg: str) -> int:
+    return int(version(pkg).split(".")[0])
+
+try:
+    t_major = major("transformers")
+    d_major = major("diffusers")
+except Exception as exc:
+    print(f"Dependency check failed: {exc}")
+    raise SystemExit(1)
+
+if t_major >= 5:
+    print("Incompatible transformers major version detected (>=5).")
+    print("Re-run setup to install pinned versions from requirements.txt.")
+    raise SystemExit(1)
+
+print("Dependency compatibility check passed.")
+PY
+
 if ! python -c "import tkinter" >/dev/null 2>&1; then
   echo "Tkinter not found (needed for fullscreen display)."
   if command -v apt-get >/dev/null 2>&1; then

@@ -27,6 +27,13 @@ sudo apt install -y libjpeg-dev zlib1g-dev libopenjp2-7 build-essential
 ./setup.sh
 ```
 
+## Error mentions `MT5Tokenizer` or `transformers`
+Your environment likely has incompatible package versions. Recreate the venv with pinned versions:
+```bash
+rm -rf .venv
+./setup.sh
+```
+
 ## First run is slow
 This is expected. The model downloads and initializes on first run.
 

@@ -135,10 +135,11 @@ class LocalTextToImageModel:
     def render(self, progress_cb: Callable[[int, str], None] | None = None) -> Image.Image:
         try:
             import torch
-            from diffusers import AutoPipelineForText2Image
+            from diffusers import StableDiffusionPipeline
         except Exception as exc:
             raise RuntimeError(
-                "Missing text-to-image dependencies. Run ./setup.sh to install required packages."
+                "Missing or incompatible text-to-image dependencies. "
+                "Run ./setup.sh to install pinned versions."
             ) from exc
 
         width, height = self._prepare_size()
@@ -147,7 +148,7 @@ class LocalTextToImageModel:
 
         device, dtype = self._pick_device(torch)
         try:
-            pipe = AutoPipelineForText2Image.from_pretrained(
+            pipe = StableDiffusionPipeline.from_pretrained(
                 self.model_id,
                 torch_dtype=dtype,
                 use_safetensors=True,
@@ -157,7 +158,7 @@ class LocalTextToImageModel:
         except Exception as exc:
             raise RuntimeError(
                 f"Failed to load model '{self.model_id}'. "
-                "Check internet for first-run download and available disk space."
+                "Check first-run model download, disk space, and dependency compatibility."
             ) from exc
 
         if progress_cb:
@@ -177,32 +178,14 @@ class LocalTextToImageModel:
             # Map inference steps to 15-95%
             return min(95, 15 + int(((step + 1) / steps) * 80))
 
+        def on_step(_step_index: int, _timestep: int, _latents) -> None:
+            if progress_cb:
+                progress_cb(
+                    _step_percent(_step_index),
+                    f"Diffusion step {_step_index + 1}/{steps}",
+                )
+
         try:
-            # Newer diffusers callback path.
-            def on_step_end(_pipe, step, _timestep, _callback_kwargs):
-                if progress_cb:
-                    progress_cb(_step_percent(step), f"Diffusion step {step + 1}/{steps}")
-                return _callback_kwargs
-
-            result = pipe(
-                prompt=self.prompt,
-                width=width,
-                height=height,
-                num_inference_steps=steps,
-                guidance_scale=self.guidance_scale,
-                generator=generator,
-                callback_on_step_end=on_step_end,
-                callback_on_step_end_tensor_inputs=["latents"],
-            )
-        except TypeError:
-            # Backward-compatible path for older diffusers callback signatures.
-            def on_step(_step_index: int, _timestep: int, _latents) -> None:
-                if progress_cb:
-                    progress_cb(
-                        _step_percent(_step_index),
-                        f"Diffusion step {_step_index + 1}/{steps}",
-                    )
-
             result = pipe(
                 prompt=self.prompt,
                 width=width,
@@ -215,7 +198,8 @@ class LocalTextToImageModel:
             )
         except Exception as exc:
             raise RuntimeError(
-                "Text-to-image generation failed. Try fewer steps or a smaller width/height (for example 512x512)."
+                "Text-to-image generation failed. "
+                "Try fewer steps or smaller size (for example 512x512), and ensure setup installed compatible versions."
             ) from exc
 
         image = result.images[0].convert("RGB")
