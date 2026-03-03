@@ -67,10 +67,12 @@ Generate only (no fullscreen viewer):
   - `output/solis_YYYYMMDD_HHMMSS_microseconds_<prompt>_s<seed>_<styleid>_<id>.png`
 - latest copy:
   - `output/solis_latest.png`
+- automatic cleanup:
+  - keeps the 4 newest generated `solis_*.png` files and deletes older ones
 
 ## Controls
 
-- `Esc` or `q`: close fullscreen window
+- `Esc` or `q`: cancel generation (if running) and close fullscreen
 
 ## Raspberry Pi Notes
 

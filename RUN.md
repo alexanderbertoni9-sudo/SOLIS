@@ -12,7 +12,7 @@
 ```
 - A built-in prompt is selected randomly each run.
 - Opens fullscreen and shows live generation previews.
-- Holds final image until `Esc` or `q`.
+- `Esc` or `q` cancels generation if still running, or closes final image.
 
 ## Optional: select model
 ```bash

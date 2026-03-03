@@ -8,6 +8,10 @@ from PIL import Image
 from model_store import prepare_local_model, verify_local_model
 
 
+class GenerationCancelled(Exception):
+    """Raised when user requests to cancel generation."""
+
+
 @dataclass
 class DiffusionConfig:
     prompt: str
@@ -45,7 +49,11 @@ class DiffusionModel:
         on_status: Callable[[str], None] | None = None,
         on_step: Callable[[int, int], None] | None = None,
         on_preview: Callable[[Image.Image, int, int], None] | None = None,
+        should_cancel: Callable[[], bool] | None = None,
     ) -> Image.Image:
+        def cancelled() -> bool:
+            return bool(should_cancel and should_cancel())
+
         try:
             import torch
             from diffusers import StableDiffusionPipeline
@@ -54,6 +62,9 @@ class DiffusionModel:
                 "Dependency import failed. Run ./setup.sh. "
                 f"Details: {exc}"
             ) from exc
+
+        if cancelled():
+            raise GenerationCancelled("Generation cancelled by user.")
 
         if on_status:
             if self.cfg.model_dir:
@@ -82,6 +93,9 @@ class DiffusionModel:
                         "Run ./setup.sh to repair it. "
                         f"Missing: {missing_text}"
                     )
+
+        if cancelled():
+            raise GenerationCancelled("Generation cancelled by user.")
 
         try:
             pipe = StableDiffusionPipeline.from_pretrained(
@@ -120,6 +134,9 @@ class DiffusionModel:
         preview_every = max(1, self.cfg.preview_every)
 
         def callback(step_index: int, _timestep: int, latents) -> None:
+            if cancelled():
+                raise GenerationCancelled("Generation cancelled by user.")
+
             current_step = step_index + 1
             if on_step:
                 on_step(current_step, total_steps)
@@ -138,6 +155,8 @@ class DiffusionModel:
                     pass
 
         def run_inference():
+            if cancelled():
+                raise GenerationCancelled("Generation cancelled by user.")
             return pipe(
                 prompt=self.cfg.prompt,
                 width=width,
@@ -151,6 +170,8 @@ class DiffusionModel:
 
         try:
             result = run_inference()
+        except GenerationCancelled:
+            raise
         except Exception as exc:
             # On macOS/MPS, fallback to CPU for reliability when kernel failures occur.
             if device == "mps":
@@ -165,6 +186,8 @@ class DiffusionModel:
                     except Exception:
                         generator = torch.Generator().manual_seed(self.cfg.seed)
                     result = run_inference()
+                except GenerationCancelled:
+                    raise
                 except Exception as exc2:
                     details2 = f"{type(exc2).__name__}: {exc2}"
                     raise RuntimeError(

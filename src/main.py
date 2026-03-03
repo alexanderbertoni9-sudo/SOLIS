@@ -16,7 +16,7 @@ from PIL import Image
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
-from model import DiffusionConfig, DiffusionModel
+from model import DiffusionConfig, DiffusionModel, GenerationCancelled
 
 DEFAULT_MODEL = "segmind/tiny-sd"
 DEFAULT_WIDTH = 512
@@ -165,6 +165,42 @@ def save_outputs(final_image: Image.Image, output_path: str) -> None:
         final_image.save(latest, format="PNG")
 
 
+def prune_output_images(keep_recent: int = 4) -> list[str]:
+    if keep_recent < 1:
+        keep_recent = 1
+
+    entries: list[tuple[float, str]] = []
+    if not os.path.isdir(OUTPUT_DIR):
+        return []
+
+    for entry in os.scandir(OUTPUT_DIR):
+        if not entry.is_file():
+            continue
+        name = entry.name
+        if name == "solis_latest.png":
+            continue
+        if not (name.startswith("solis_") and name.endswith(".png")):
+            continue
+        try:
+            mtime = entry.stat().st_mtime
+        except OSError:
+            continue
+        entries.append((mtime, entry.path))
+
+    # Newest first; anything after keep_recent is old enough to delete.
+    entries.sort(key=lambda item: item[0], reverse=True)
+    to_delete = entries[keep_recent:]
+
+    deleted: list[str] = []
+    for _, path in to_delete:
+        try:
+            os.remove(path)
+            deleted.append(os.path.abspath(path))
+        except OSError as exc:
+            print(f"Warning: could not delete old image: {path} ({exc})")
+    return deleted
+
+
 def main() -> None:
     args = parse_args()
     prompt = random.choice(PROMPT_POOL)
@@ -220,6 +256,7 @@ def main() -> None:
                 viewer = None
 
     event_q: queue.Queue[tuple[str, object]] = queue.Queue(maxsize=8)
+    cancel_event = threading.Event()
 
     def enqueue(name: str, data: object) -> None:
         if name == "preview":
@@ -248,8 +285,15 @@ def main() -> None:
 
     def worker() -> None:
         try:
-            final = model.generate(on_status=on_status, on_step=on_step, on_preview=on_preview)
+            final = model.generate(
+                on_status=on_status,
+                on_step=on_step,
+                on_preview=on_preview,
+                should_cancel=cancel_event.is_set,
+            )
             enqueue("final", final)
+        except GenerationCancelled:
+            enqueue("cancelled", "Generation cancelled by user.")
         except Exception as exc:
             enqueue("error", str(exc))
         finally:
@@ -268,17 +312,20 @@ def main() -> None:
     spinner = ["|", "/", "-", "\\"]
     spinner_idx = 0
     has_preview_frame = False
+    user_cancelled = False
 
     while not done:
         if viewer and not viewer.pump():
+            user_cancelled = True
+            cancel_event.set()
             viewer.close()
             viewer = None
-            print("Viewer closed by user. Continuing generation in terminal...")
+            print("Cancel requested by user. Stopping generation...")
 
         try:
             event, payload = event_q.get(timeout=0.05)
         except queue.Empty:
-            if viewer and not has_preview_frame:
+            if viewer and not has_preview_frame and not user_cancelled:
                 viewer.show_loading(f"{status_msg} {spinner[spinner_idx]}")
                 spinner_idx = (spinner_idx + 1) % len(spinner)
             continue
@@ -300,10 +347,19 @@ def main() -> None:
             final_image = payload  # type: ignore[assignment]
         elif event == "error":
             error_message = str(payload)
+        elif event == "cancelled":
+            user_cancelled = True
         elif event == "done":
             done = True
 
-    thread.join(timeout=1.0)
+    thread.join(timeout=5.0)
+
+    if user_cancelled:
+        if viewer:
+            viewer.close()
+            viewer = None
+        print("Generation cancelled by user.")
+        return
 
     if error_message is not None:
         if viewer:
@@ -327,6 +383,9 @@ def main() -> None:
     abs_path = os.path.abspath(output_path)
     print(f"Image generated successfully: {abs_path}")
     print(f"File size: {size_bytes / 1024.0:.1f} KB")
+    deleted = prune_output_images(keep_recent=4)
+    if deleted:
+        print(f"Cleanup: deleted {len(deleted)} old image(s) to save space.")
 
     if args.no_open:
         if viewer:
