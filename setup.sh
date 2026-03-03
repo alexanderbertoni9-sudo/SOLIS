@@ -27,7 +27,6 @@ echo "[4/4] Ensuring output/ exists..."
 mkdir -p output
 
 python - <<'PY'
-import sys
 from importlib.metadata import PackageNotFoundError, version
 
 def major(pkg: str) -> int:
@@ -53,19 +52,20 @@ for pkg in ("torchvision", "torchaudio"):
     except PackageNotFoundError:
         pass
 
-print("Dependency compatibility check passed.")
-PY
+try:
+    from diffusers import StableDiffusionPipeline
+except Exception as exc:
+    print(f"StableDiffusionPipeline import check failed: {exc}")
+    raise SystemExit(1)
 
-if ! python -c "import tkinter" >/dev/null 2>&1; then
-  echo "Tkinter not found (needed for fullscreen display)."
-  if command -v apt-get >/dev/null 2>&1; then
-    echo "Attempting to install python3-tk (may ask for sudo password)..."
-    sudo apt-get update
-    sudo apt-get install -y python3-tk
-  else
-    echo "Install tkinter manually for your OS to enable fullscreen display."
-  fi
-fi
+try:
+    import pygame
+except Exception as exc:
+    print(f"pygame import check failed: {exc}")
+    raise SystemExit(1)
+
+print("Dependency compatibility check passed (diffusers + pygame).")
+PY
 
 echo "=== DONE ==="
 echo "Next step: ./run.sh"

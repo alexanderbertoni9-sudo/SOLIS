@@ -1,11 +1,10 @@
 # SOLIS
 
-SOLIS now uses a full local text-to-image model.
+SOLIS is a local text-to-image generator built for Raspberry Pi with live fullscreen preview.
 
-## Goal
-- `setup.sh`: install everything once.
-- `run.sh`: generate one image.
-- `COPY_PASTE_START.md`: beginner guide with copy/paste commands.
+## What You Run
+- `./setup.sh` installs everything once.
+- `./run.sh` starts generation and displays the image live in fullscreen.
 
 ## Quick Start
 ```bash
@@ -13,35 +12,29 @@ SOLIS now uses a full local text-to-image model.
 ./run.sh
 ```
 
-Generated file:
-- `output/solis_YYYYMMDD_HHMMSS_microseconds_<prompt>_s<seed>_<styleid>_<id>.png` (new unique file each run)
-- `output/solis_latest.png` (always updated copy of newest image)
-- `./run.sh` opens the image in fullscreen on Raspberry Pi desktop.
-- Press `Esc` or `q` to close fullscreen.
-- If run from a terminal session without GUI display access, image generation still succeeds and the script prints an `xdg-open` command to run from desktop session.
+## What You See
+- Fullscreen window opens first.
+- You see the image being constructed during diffusion.
+- Final image stays fullscreen until you press `Esc` or `q`.
 
-## Example Prompt
+## Output Files
+- `output/solis_YYYYMMDD_HHMMSS_microseconds_<prompt>_s<seed>_<styleid>_<id>.png`
+- `output/solis_latest.png` (latest copy)
+
+## Defaults
+- Model: `segmind/tiny-sd`
+- Size: `512x512`
+- Steps: `20`
+- Live preview: every step
+
+## Example
 ```bash
-./run.sh --prompt "a picture of a dog and a cat"
+./run.sh --prompt "a cat and a dog on a couch"
 ```
 
-## Model Notes
-- Fully local generation after model download.
-- First run downloads the model to local cache and can take time.
-- This branch uses `segmind/tiny-sd` by default (smallest practical full text-to-image setup).
-- You can change model with `--model`.
-
-## Files You Need
-- `setup.sh`
-- `run.sh`
-- `COPY_PASTE_START.md`
-
-## Optional Arguments
+## Notes For Pi
+- First run is slower because model files download once.
+- For lower memory usage:
 ```bash
-./run.sh --prompt "a cinematic cat portrait" --width 512 --height 512 --steps 20 --seed 1234
+./run.sh --width 512 --height 512 --steps 15
 ```
-
-## Beginner Flow
-1. Run `./setup.sh` once.
-2. Run `./run.sh` each time you want a new image.
-3. Type a prompt when asked (or press Enter for default).

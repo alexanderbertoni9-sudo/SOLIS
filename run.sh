@@ -11,4 +11,4 @@ fi
 source .venv/bin/activate
 mkdir -p output
 
-python src/generate_image.py "$@"
+python src/main.py "$@"

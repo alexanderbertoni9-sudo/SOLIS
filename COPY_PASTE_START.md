@@ -1,9 +1,11 @@
 # Copy/Paste Start (Beginner Friendly)
 
-If you are new, run these commands exactly in this order.
+Run these commands exactly in this order.
 
-## 1) Open Terminal in this SOLIS folder
-You should be inside the project folder before running commands.
+## 1) Go to the SOLIS folder
+```bash
+cd /Users/alexander.bertoni/Documents/GitHub/SOLIS
+```
 
 ## 2) Install everything (one time)
 ```bash
@@ -16,10 +18,10 @@ You should be inside the project folder before running commands.
 ```
 - You will be asked for a prompt.
 - Press Enter to use the default prompt.
-- On Raspberry Pi desktop, the image opens in fullscreen.
+- Fullscreen opens immediately.
+- You can watch the image being generated live.
 - Press `Esc` or `q` to close fullscreen.
-- If you launched from a terminal without GUI display access, it will still save the image and print the `xdg-open` command for desktop session.
-- First run may be slower because the text-to-image model downloads.
+- First run may be slower because model files download.
 
 Your image will be saved here:
 - `output/solis_YYYYMMDD_HHMMSS_microseconds_<prompt>_s<seed>_<styleid>_<id>.png`

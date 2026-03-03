@@ -4,18 +4,15 @@
 ```bash
 ./setup.sh
 ```
-- First run may still take longer while model files download.
+- First run may take longer due model download.
 
 ## 2) Generate an image
 ```bash
 ./run.sh
 ```
-- This asks for a prompt.
-- It saves the image and opens it in fullscreen on Raspberry Pi desktop.
-- Press `Esc` or `q` to close fullscreen.
-- During generation, Terminal shows live progress percentages.
-- If no GUI display is available in that terminal session, the image is still generated and you will get an exact `xdg-open` command to run from desktop session.
-- On Linux remote terminals, SOLIS now attempts to auto-attach to desktop display (`:0`) before skipping viewer.
+- Prompts interactively if not provided.
+- Opens fullscreen and shows live generation previews.
+- Holds final image until `Esc` or `q`.
 
 ## Optional: custom prompt
 ```bash
@@ -30,6 +27,11 @@
 ## Optional: lower memory usage
 ```bash
 ./run.sh --width 512 --height 512 --steps 15
+```
+
+## Optional: deterministic output
+```bash
+./run.sh --prompt "a cat and a dog" --seed 1234
 ```
 
 ## Output

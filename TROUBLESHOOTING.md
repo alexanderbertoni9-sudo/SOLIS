@@ -23,23 +23,15 @@ sudo apt install -y python3 python3-venv python3-pip
 Install build tools and try setup again:
 ```bash
 sudo apt update
-sudo apt install -y libjpeg-dev zlib1g-dev libopenjp2-7 build-essential
+sudo apt install -y build-essential libjpeg-dev zlib1g-dev libopenjp2-7
 ./setup.sh
 ```
 
-## Error mentions `MT5Tokenizer` or `transformers`
-Your environment likely has incompatible package versions. Recreate the venv with pinned versions:
+## Dependency mismatch errors
+If you see errors mentioning `transformers`, `torchvision`, or `torchaudio`:
 ```bash
 rm -rf .venv
 ./setup.sh
-```
-
-## Error mentions `torchvision` or `torchaudio`
-Those optional packages can conflict with your torch build. Remove them:
-```bash
-source .venv/bin/activate
-python -m pip uninstall -y torchvision torchaudio
-./run.sh
 ```
 
 ## First run is slow
@@ -68,18 +60,11 @@ The image is still saved at:
 - `output/solis_latest.png`
 - `output/solis_*.png` (new uniquely named files)
 
-If Terminal says viewer was skipped because no display is available, run the printed command from your desktop session.
-You can also retry from remote terminal with:
+If viewer was skipped because no display was available, run from desktop session:
 ```bash
 export DISPLAY=:0
 export XAUTHORITY="$HOME/.Xauthority"
 ./run.sh
-```
-
-Install tkinter if fullscreen window does not launch:
-```bash
-sudo apt update
-sudo apt install -y python3-tk
 ```
 
 If needed, open it manually:

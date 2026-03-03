@@ -1,4 +1,330 @@
-from generate_image import main
+from __future__ import annotations
+
+import argparse
+from datetime import datetime
+import hashlib
+import os
+import queue
+import random
+import re
+import shlex
+import sys
+import threading
+
+from PIL import Image
+
+os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
+
+from model import DiffusionConfig, DiffusionModel
+from viewer import FullscreenViewer, ViewerConfig
+
+DEFAULT_PROMPT = "A clean, futuristic city powered by renewable energy at sunrise"
+DEFAULT_MODEL = "segmind/tiny-sd"
+DEFAULT_WIDTH = 512
+DEFAULT_HEIGHT = 512
+DEFAULT_STEPS = 20
+DEFAULT_PREVIEW_EVERY = 1
+DEFAULT_GUIDANCE_SCALE = 7.5
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+OUTPUT_DIR = os.path.join(ROOT, "output")
+
+
+def _style_id(prompt: str) -> str:
+    return hashlib.sha256(prompt.strip().lower().encode("utf-8")).hexdigest()[:8]
+
+
+def _slug_prompt(prompt: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", prompt.strip().lower())
+    slug = re.sub(r"-+", "-", slug).strip("-")
+    return slug[:36] if slug else "scene"
+
+
+def build_output_path(prompt: str, seed: int) -> str:
+    style_id = _style_id(prompt)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    slug = _slug_prompt(prompt)
+    nonce = os.urandom(2).hex()
+    base_name = f"solis_{stamp}_{slug}_s{seed}_{style_id}_{nonce}"
+    output_path = os.path.join(OUTPUT_DIR, f"{base_name}.png")
+    n = 1
+    while os.path.exists(output_path):
+        output_path = os.path.join(OUTPUT_DIR, f"{base_name}_{n}.png")
+        n += 1
+    return output_path
+
+
+def verify_generated_image(path: str) -> tuple[bool, str, int]:
+    abs_path = os.path.abspath(path)
+    if not os.path.exists(abs_path):
+        return False, "File was not created.", 0
+
+    try:
+        size_bytes = os.path.getsize(abs_path)
+    except OSError as exc:
+        return False, f"Could not read file size: {exc}", 0
+
+    if size_bytes <= 0:
+        return False, "File was created but is empty.", size_bytes
+
+    try:
+        with Image.open(abs_path) as img:
+            img.verify()
+    except Exception as exc:
+        return False, f"Generated file is not a valid image: {exc}", size_bytes
+
+    return True, "Image file is valid.", size_bytes
+
+
+def manual_open_command(path: str) -> str:
+    abs_path = os.path.abspath(path)
+    if sys.platform == "darwin":
+        return f"open {shlex.quote(abs_path)}"
+    if os.name == "nt":
+        return f'start "" "{abs_path}"'
+    return f'xdg-open "{abs_path}"'
+
+
+def detect_display_context() -> tuple[bool, str]:
+    if sys.platform.startswith("linux"):
+        display = os.environ.get("DISPLAY")
+        wayland = os.environ.get("WAYLAND_DISPLAY")
+        if not display and not wayland:
+            return False, "DISPLAY/WAYLAND_DISPLAY is not set in this terminal session."
+    return True, "Display context appears available."
+
+
+def try_attach_linux_desktop_display() -> tuple[bool, str]:
+    if not sys.platform.startswith("linux"):
+        return False, "Auto-attach is only supported on Linux."
+
+    x11_socket = "/tmp/.X11-unix/X0"
+    if not os.path.exists(x11_socket):
+        return False, "No X11 desktop socket found at /tmp/.X11-unix/X0."
+
+    if not os.environ.get("DISPLAY"):
+        os.environ["DISPLAY"] = ":0"
+
+    xauthority = os.path.expanduser("~/.Xauthority")
+    if os.path.exists(xauthority) and not os.environ.get("XAUTHORITY"):
+        os.environ["XAUTHORITY"] = xauthority
+
+    ok, reason = detect_display_context()
+    if ok:
+        return True, f'Attached to desktop display (DISPLAY={os.environ.get("DISPLAY", "")}).'
+    return False, f"Auto-attach attempt failed: {reason}"
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate a local image with live fullscreen diffusion preview."
+    )
+    parser.add_argument("--prompt", default=None, help="Text prompt to generate.")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="Model id (Hugging Face).")
+    parser.add_argument("--width", type=int, default=DEFAULT_WIDTH, help="Image width.")
+    parser.add_argument("--height", type=int, default=DEFAULT_HEIGHT, help="Image height.")
+    parser.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="Inference steps.")
+    parser.add_argument("--seed", type=int, default=None, help="Seed for reproducibility.")
+    parser.add_argument(
+        "--preview-every",
+        type=int,
+        default=DEFAULT_PREVIEW_EVERY,
+        help="Decode/display every N steps.",
+    )
+    parser.add_argument("--no-open", action="store_true", help="Generate only, no fullscreen viewer.")
+    return parser.parse_args()
+
+
+def resolve_prompt(raw_prompt: str | None) -> str:
+    if raw_prompt is not None:
+        return raw_prompt
+    if sys.stdin.isatty():
+        typed = input(f'Prompt (press Enter for default: "{DEFAULT_PROMPT}"): ').strip()
+        return typed or DEFAULT_PROMPT
+    return DEFAULT_PROMPT
+
+
+def save_outputs(final_image: Image.Image, output_path: str) -> None:
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    final_image.save(output_path, format="PNG")
+    latest = os.path.join(OUTPUT_DIR, "solis_latest.png")
+    if os.path.abspath(output_path) != os.path.abspath(latest):
+        final_image.save(latest, format="PNG")
+
+
+def main() -> None:
+    args = parse_args()
+    prompt = resolve_prompt(args.prompt)
+    seed = args.seed if args.seed is not None else random.randint(1, 99999999)
+    output_path = build_output_path(prompt, seed)
+
+    print("Generating image locally...")
+    print(f"Prompt: {prompt}")
+    print(f"Model: {args.model}")
+    print(f"Style ID: {_style_id(prompt)}")
+    print(f"Size: {args.width}x{args.height}")
+    print(f"Steps: {args.steps}")
+    print(f"Seed: {seed}")
+
+    cfg = DiffusionConfig(
+        prompt=prompt,
+        model_id=args.model,
+        width=args.width,
+        height=args.height,
+        steps=args.steps,
+        seed=seed,
+        preview_every=max(1, args.preview_every),
+        guidance_scale=DEFAULT_GUIDANCE_SCALE,
+    )
+    model = DiffusionModel(cfg)
+
+    viewer: FullscreenViewer | None = None
+    display_reason = ""
+    want_viewer = not args.no_open
+    if want_viewer:
+        context_ok, context_reason = detect_display_context()
+        display_reason = context_reason
+        if not context_ok and sys.platform.startswith("linux"):
+            attached, attach_reason = try_attach_linux_desktop_display()
+            if attached:
+                context_ok, context_reason = True, attach_reason
+                display_reason = context_reason
+            else:
+                display_reason = f"{context_reason} {attach_reason}"
+        if context_ok:
+            try:
+                viewer = FullscreenViewer(ViewerConfig(title="SOLIS - Live Diffusion"))
+                viewer.show_loading("Loading model...")
+            except Exception as exc:
+                display_reason = f"Fullscreen viewer init failed: {exc}"
+                viewer = None
+
+    event_q: queue.Queue[tuple[str, object]] = queue.Queue(maxsize=8)
+
+    def enqueue(name: str, data: object) -> None:
+        if name == "preview":
+            try:
+                event_q.put_nowait((name, data))
+            except queue.Full:
+                try:
+                    event_q.get_nowait()
+                except queue.Empty:
+                    pass
+                try:
+                    event_q.put_nowait((name, data))
+                except queue.Full:
+                    pass
+            return
+        event_q.put((name, data))
+
+    def on_status(message: str) -> None:
+        enqueue("status", message)
+
+    def on_step(step: int, total: int) -> None:
+        enqueue("step", (step, total))
+
+    def on_preview(image: Image.Image, step: int, total: int) -> None:
+        enqueue("preview", (image, step, total))
+
+    def worker() -> None:
+        try:
+            final = model.generate(on_status=on_status, on_step=on_step, on_preview=on_preview)
+            enqueue("final", final)
+        except Exception as exc:
+            enqueue("error", str(exc))
+        finally:
+            enqueue("done", None)
+
+    thread = threading.Thread(target=worker, daemon=True)
+    thread.start()
+
+    done = False
+    final_image: Image.Image | None = None
+    error_message: str | None = None
+    status_msg = "Loading model..."
+    last_step = 0
+    last_total = max(1, args.steps)
+    last_percent_printed = -1
+    spinner = ["|", "/", "-", "\\"]
+    spinner_idx = 0
+
+    while not done:
+        if viewer and not viewer.pump():
+            viewer.close()
+            viewer = None
+            print("Viewer closed by user. Continuing generation in terminal...")
+
+        try:
+            event, payload = event_q.get(timeout=0.05)
+        except queue.Empty:
+            if viewer:
+                viewer.show_loading(f"{status_msg} {spinner[spinner_idx]}")
+                spinner_idx = (spinner_idx + 1) % len(spinner)
+            continue
+
+        if event == "status":
+            status_msg = str(payload)
+        elif event == "step":
+            last_step, last_total = payload  # type: ignore[misc]
+            percent = int((last_step / max(1, last_total)) * 100)
+            if not viewer and percent != last_percent_printed:
+                print(f"[{percent:3d}%] Diffusion step {last_step}/{last_total}")
+                last_percent_printed = percent
+        elif event == "preview":
+            image, step, total = payload  # type: ignore[misc]
+            if viewer:
+                viewer.show_frame(image, step, total, prompt)
+        elif event == "final":
+            final_image = payload  # type: ignore[assignment]
+        elif event == "error":
+            error_message = str(payload)
+        elif event == "done":
+            done = True
+
+    thread.join(timeout=1.0)
+
+    if viewer:
+        viewer.close()
+        viewer = None
+
+    if error_message is not None:
+        print(f"Image generation failed: {error_message}")
+        raise SystemExit(1)
+    if final_image is None:
+        print("Image generation failed: no final image returned.")
+        raise SystemExit(1)
+
+    save_outputs(final_image, output_path)
+    valid, reason, size_bytes = verify_generated_image(output_path)
+    if not valid:
+        print(f"Image verification failed: {reason}")
+        raise SystemExit(1)
+
+    abs_path = os.path.abspath(output_path)
+    print(f"Image generated successfully: {abs_path}")
+    print(f"File size: {size_bytes / 1024.0:.1f} KB")
+
+    if args.no_open:
+        return
+
+    if display_reason and "available" not in display_reason.lower():
+        print(f"Image generated successfully; viewer skipped: {display_reason}")
+        print(f'Open from desktop session with: {manual_open_command(abs_path)}')
+        return
+
+    # Re-open viewer for final hold if display was available.
+    try:
+        viewer = FullscreenViewer(ViewerConfig(title="SOLIS - Final Image"))
+        if display_reason:
+            print(display_reason)
+        viewer.show_final(final_image, prompt)
+        viewer.wait_until_exit()
+    except Exception as exc:
+        print(f"Fullscreen hold failed: {exc}")
+        print(f'Open manually with: {manual_open_command(abs_path)}')
+    finally:
+        if viewer:
+            viewer.close()
 
 
 if __name__ == "__main__":
