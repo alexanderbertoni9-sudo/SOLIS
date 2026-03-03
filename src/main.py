@@ -235,16 +235,20 @@ def main() -> None:
 
     viewer: Any = None
     display_reason = ""
+    display_available = False
     want_viewer = not args.no_open
     if want_viewer:
         context_ok, context_reason = detect_display_context()
+        display_available = context_ok
         display_reason = context_reason
         if not context_ok and sys.platform.startswith("linux"):
             attached, attach_reason = try_attach_linux_desktop_display()
             if attached:
                 context_ok, context_reason = True, attach_reason
+                display_available = True
                 display_reason = context_reason
             else:
+                display_available = False
                 display_reason = f"{context_reason} {attach_reason}"
         if context_ok:
             try:
@@ -252,6 +256,7 @@ def main() -> None:
                 viewer = FullscreenViewer(ViewerConfig(title="SOLIS - Live Diffusion"))
                 viewer.show_loading("Loading model...")
             except Exception as exc:
+                display_available = False
                 display_reason = f"Fullscreen viewer init failed: {exc}"
                 viewer = None
 
@@ -393,7 +398,7 @@ def main() -> None:
             viewer = None
         return
 
-    if display_reason and "available" not in display_reason.lower():
+    if not display_available:
         if viewer:
             viewer.close()
             viewer = None
