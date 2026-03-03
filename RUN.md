@@ -10,18 +10,13 @@
 ```bash
 ./run.sh
 ```
-- Prompts interactively if not provided.
+- A built-in prompt is selected randomly each run.
 - Opens fullscreen and shows live generation previews.
 - Holds final image until `Esc` or `q`.
 
-## Optional: custom prompt
-```bash
-./run.sh --prompt "a picture of a dog and a cat"
-```
-
 ## Optional: select model
 ```bash
-./run.sh --model "segmind/tiny-sd" --prompt "a red fox in snow"
+./run.sh --model "segmind/tiny-sd"
 ```
 
 ## Optional: use a specific local model directory
@@ -32,7 +27,7 @@
 ## Optional: use remote model id (advanced)
 If you pass a non-default model id and no `--model-dir`, runtime may download that model:
 ```bash
-./run.sh --model "runwayml/stable-diffusion-v1-5" --prompt "city skyline"
+./run.sh --model "runwayml/stable-diffusion-v1-5"
 ```
 
 ## Optional: lower memory usage
@@ -42,7 +37,7 @@ If you pass a non-default model id and no `--model-dir`, runtime may download th
 
 ## Optional: deterministic output
 ```bash
-./run.sh --prompt "a cat and a dog" --seed 1234
+./run.sh --seed 1234
 ```
 
 ## Output

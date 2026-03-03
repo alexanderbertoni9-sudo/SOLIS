@@ -9,6 +9,7 @@ venv/
 
 # Generated outputs
 output/
+models/
 
 # Editors
 .vscode/

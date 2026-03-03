@@ -18,13 +18,24 @@ os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 
 from model import DiffusionConfig, DiffusionModel
 
-DEFAULT_PROMPT = "A clean, futuristic city powered by renewable energy at sunrise"
 DEFAULT_MODEL = "segmind/tiny-sd"
 DEFAULT_WIDTH = 512
 DEFAULT_HEIGHT = 512
 DEFAULT_STEPS = 20
 DEFAULT_PREVIEW_EVERY = 1
 DEFAULT_GUIDANCE_SCALE = 7.5
+PROMPT_POOL: tuple[str, ...] = (
+    "Wind turbines producing renewable energy at sunrise.",
+    "Wind turbines and solar panels on a green field generating clean power.",
+    "A modern solar farm stretching across rolling hills under golden light.",
+    "A coastal renewable energy hub with offshore wind turbines and solar arrays.",
+    "A futuristic eco-city powered by rooftop solar and vertical wind turbines.",
+    "Hydroelectric dam with clean energy flowing to a nearby smart city.",
+    "A community microgrid with batteries, solar rooftops, and small wind turbines.",
+    "A desert renewable plant with mirrors and solar panels powering the region.",
+    "An energy control center monitoring wind, solar, and battery storage.",
+    "A clean transportation network of EV buses charging from renewable stations.",
+)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OUTPUT_DIR = os.path.join(ROOT, "output")
@@ -123,7 +134,6 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate a local image with live fullscreen diffusion preview."
     )
-    parser.add_argument("--prompt", default=None, help="Text prompt to generate.")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="Model id (Hugging Face).")
     parser.add_argument(
         "--model-dir",
@@ -147,15 +157,6 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def resolve_prompt(raw_prompt: str | None) -> str:
-    if raw_prompt is not None:
-        return raw_prompt
-    if sys.stdin.isatty():
-        typed = input(f'Prompt (press Enter for default: "{DEFAULT_PROMPT}"): ').strip()
-        return typed or DEFAULT_PROMPT
-    return DEFAULT_PROMPT
-
-
 def save_outputs(final_image: Image.Image, output_path: str) -> None:
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     final_image.save(output_path, format="PNG")
@@ -166,7 +167,7 @@ def save_outputs(final_image: Image.Image, output_path: str) -> None:
 
 def main() -> None:
     args = parse_args()
-    prompt = resolve_prompt(args.prompt)
+    prompt = random.choice(PROMPT_POOL)
     seed = args.seed if args.seed is not None else random.randint(1, 99999999)
     output_path = build_output_path(prompt, seed)
     model_dir = args.model_dir
@@ -266,6 +267,7 @@ def main() -> None:
     last_percent_printed = -1
     spinner = ["|", "/", "-", "\\"]
     spinner_idx = 0
+    has_preview_frame = False
 
     while not done:
         if viewer and not viewer.pump():
@@ -276,7 +278,7 @@ def main() -> None:
         try:
             event, payload = event_q.get(timeout=0.05)
         except queue.Empty:
-            if viewer:
+            if viewer and not has_preview_frame:
                 viewer.show_loading(f"{status_msg} {spinner[spinner_idx]}")
                 spinner_idx = (spinner_idx + 1) % len(spinner)
             continue
@@ -291,6 +293,7 @@ def main() -> None:
                 last_percent_printed = percent
         elif event == "preview":
             image, step, total = payload  # type: ignore[misc]
+            has_preview_frame = True
             if viewer:
                 viewer.show_frame(image, step, total, prompt)
         elif event == "final":
@@ -302,14 +305,16 @@ def main() -> None:
 
     thread.join(timeout=1.0)
 
-    if viewer:
-        viewer.close()
-        viewer = None
-
     if error_message is not None:
+        if viewer:
+            viewer.close()
+            viewer = None
         print(f"Image generation failed: {error_message}")
         raise SystemExit(1)
     if final_image is None:
+        if viewer:
+            viewer.close()
+            viewer = None
         print("Image generation failed: no final image returned.")
         raise SystemExit(1)
 
@@ -324,17 +329,24 @@ def main() -> None:
     print(f"File size: {size_bytes / 1024.0:.1f} KB")
 
     if args.no_open:
+        if viewer:
+            viewer.close()
+            viewer = None
         return
 
     if display_reason and "available" not in display_reason.lower():
+        if viewer:
+            viewer.close()
+            viewer = None
         print(f"Image generated successfully; viewer skipped: {display_reason}")
         print(f'Open from desktop session with: {manual_open_command(abs_path)}')
         return
 
-    # Re-open viewer for final hold if display was available.
+    # Hold final image in the existing viewer if still open. Otherwise open once.
     try:
-        from viewer import FullscreenViewer, ViewerConfig
-        viewer = FullscreenViewer(ViewerConfig(title="SOLIS - Final Image"))
+        if viewer is None:
+            from viewer import FullscreenViewer, ViewerConfig
+            viewer = FullscreenViewer(ViewerConfig(title="SOLIS - Final Image"))
         if display_reason:
             print(display_reason)
         viewer.show_final(final_image, prompt)

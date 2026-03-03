@@ -17,6 +17,7 @@ After setup completes, `./run.sh` uses local model files by default (no network 
 
 ## What You See
 - Fullscreen window opens first.
+- A prompt is chosen randomly from the built-in renewable-energy prompt list.
 - You see the image being constructed during diffusion.
 - Final image stays fullscreen until you press `Esc` or `q`.
 
@@ -31,10 +32,9 @@ After setup completes, `./run.sh` uses local model files by default (no network 
 - Steps: `20`
 - Live preview: every step
 
-## Example
-```bash
-./run.sh --prompt "a cat and a dog on a couch"
-```
+## Prompt Mode
+- Custom prompt input is disabled for now.
+- Each run auto-selects one prompt from a built-in list of 10 renewable-energy scenes.
 
 ## Notes For Pi
 - First setup is slower because model files download once.
