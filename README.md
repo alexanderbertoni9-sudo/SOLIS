@@ -1,20 +1,43 @@
-# SOLIS — Solar-Operated Local Image Synthesizer
+# SOLIS
 
-SOLIS is a solar-powered, Raspberry Pi–based sustainable art installation that generates images using a local/private AI pipeline and displays them on a monochrome e-paper (e-ink) display.
+SOLIS now uses a lightweight local model designed to run on Raspberry Pi.
 
-**Prompt (fixed):** “A picture of renewable energy”
+## Goal
+- `setup.sh`: install everything once.
+- `run.sh`: generate one image.
+- `COPY_PASTE_START.md`: beginner guide with copy/paste commands.
 
-## Core experience
-- A physical button triggers a reset and a new image is generated.
-- The system aims to feel “live” while generating by showing progressive updates (snapshots/progress indicator), adapted to slow e-paper refresh.
+## Quick Start
+```bash
+./setup.sh
+./run.sh
+```
 
-## Repository layout
-- `src/` — Python prototype + (later) Raspberry Pi code
-- `image_bank/` — optional pre-generated images for fast prototyping (not committed)
-- `exports/` — generated output images (not committed)
-- `docs/` — build notes, diagrams, competition documentation
+Generated file:
+- `output/solis_latest.png`
+- `./run.sh` also opens the image viewer automatically on Raspberry Pi desktop.
 
-## Build order
-1. Desktop software prototype
-2. Raspberry Pi port + optimization
-3. Hardware integration (e-paper, button, solar + battery)
+## Example Prompt
+```bash
+./run.sh --prompt "A glowing wind farm over green hills at sunrise"
+```
+
+## Why This Version Is Lightweight
+- Fully local generation (no cloud API calls).
+- Only one Python dependency: Pillow.
+- No `torch`, no `diffusers`, no large model downloads.
+
+## Files You Need
+- `setup.sh`
+- `run.sh`
+- `COPY_PASTE_START.md`
+
+## Optional Arguments
+```bash
+./run.sh --prompt "Solar panels under neon clouds" --width 640 --height 640 --seed 1234
+```
+
+## Beginner Flow
+1. Run `./setup.sh` once.
+2. Run `./run.sh` each time you want a new image.
+3. Type a prompt when asked (or press Enter for default).

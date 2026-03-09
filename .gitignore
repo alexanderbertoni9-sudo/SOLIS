@@ -8,8 +8,7 @@ __pycache__/
 venv/
 
 # Generated outputs
-exports/
-image_bank/
+output/
 
 # Editors
 .vscode/
